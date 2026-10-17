@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""emit_facts.py — tender-document-review 机读产物序列化便利脚本（v1.2.0 新增，v1.3.0 同步）
+"""emit_facts.py — tender-document-review 机读产物序列化便利脚本（v1.2.0 新增，v1.3.1 同步）
 
 把已成表的七类内容（clauses / scoring / system_clues / clarifications / contacts /
 blind_format / contract_deviations / coverage_map）序列化为 tender-facts.json，
@@ -22,7 +22,7 @@ blind_format / contract_deviations / coverage_map）序列化为 tender-facts.js
         --expected-clauses 42 --expected-scoring 12       # 条目数守恒判据
 
 input.json 形态：接近最终的 JSON（Markdown 成果的机读稿）。可缺省字段：
-- clauses[].id 缺省时按出现顺序生成 c-0001、c-0002……（稳定主键，排序变化不改）
+- clauses[].id 缺省时按出现顺序生成 c-0001、c-0002……（**自填** id 才是稳定主键、排序变化不改；依赖缺省 id 时顺序变化 id 即变，下游请以自填 id 做关联）
 - schema_version / contract_schema_version 缺省时按契约常量补 0.4
 - source_skill_version 缺省时自动读取 ../SKILL.md frontmatter 的 version
 - source_rule_seq 缺省时取 --rule-seq（默认 10，即判词库「规则变更记录」现行历史序号；
@@ -38,7 +38,7 @@ from pathlib import Path
 SCHEMA_VERSION = "0.4"
 CONTRACT_SCHEMA_VERSION = "0.4"
 DEFAULT_RULE_SEQ = 10
-FALLBACK_SKILL_VERSION = "1.3.0"
+FALLBACK_SKILL_VERSION = "1.3.1"
 
 ROOT_REQUIRED = [
     "schema_version", "contract_schema_version", "source_skill_version", "source_rule_seq",
