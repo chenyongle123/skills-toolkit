@@ -1,4 +1,4 @@
-# bid-tender-review ｜ 招标文件审查（投标方视角）
+# tender-document-review ｜ 招标文件审查（投标方视角）
 
 把任意招标文件（PDF / Word）中的**限制性条款**，规范、不漏、可追溯地提取为结构化核对清单。
 
@@ -40,10 +40,10 @@
 
 ## 安装
 
-把 `bid-tender-review/` 整个目录放入你的技能目录即可（如 `~/.workbuddy/skills/`）：
+把 `tender-document-review/` 整个目录放入你的技能目录即可（如 `~/.workbuddy/skills/`）：
 
 ```
-bid-tender-review/
+tender-document-review/
 ├── SKILL.md                        # 主流程（11 条铁律 + 7 步处理 + 交付自检）
 ├── README.md                       # 本文件
 └── references/

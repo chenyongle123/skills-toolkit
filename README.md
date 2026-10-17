@@ -6,14 +6,14 @@
 
 | 技能 | 版本 | 定位 |
 |---|---|---|
-| [bid-tender-review](skills/bid-tender-review/) | v1.0.0 | 投标方视角招标文件审查：将限制性条款规范、不漏、可追溯地提取为七类结构化清单 |
+| [tender-document-review](skills/tender-document-review/) | v1.0.0 | 投标方视角招标文件审查：将限制性条款规范、不漏、可追溯地提取为七类结构化清单 |
 | [business-contract-review](skills/business-contract-review/) | v1.0.0 | 中国法商务合同审核：四类合同条款级审查，红黄绿分级 + 可用 redline 修改建议 |
 | [delivery-audit](skills/delivery-audit/) | v1.0.0 | 交付前审查闸门：五条铁律 + 四段闸门 + 三态输出（✅/⚠️/❌） |
 
 ## 技能关系
 
 ```
-bid-tender-review ──┐
+tender-document-review ──┐
                     ├──> delivery-audit（交付前审查闸门，可点名加载领域清单）
 business-contract-review ──┘
 ```
@@ -27,7 +27,7 @@ business-contract-review ──┘
 
 ```bash
 # WorkBuddy 用户级技能目录
-cp -r skills/bid-tender-review ~/.workbuddy/skills/
+cp -r skills/tender-document-review ~/.workbuddy/skills/
 cp -r skills/business-contract-review ~/.workbuddy/skills/
 cp -r skills/delivery-audit ~/.workbuddy/skills/
 ```
@@ -35,7 +35,7 @@ cp -r skills/delivery-audit ~/.workbuddy/skills/
 ## 版本管理约定
 
 - 每个技能独立版本号（见各自 `SKILL.md` 的 `version:` 字段）
-- Git tag 采用 `技能名/vX.Y.Z` 前缀，如 `bid-tender-review/v1.1.0`
+- Git tag 采用 `技能名/vX.Y.Z` 前缀，如 `tender-document-review/v1.1.0`
 - 仓库级变更（README/CI/新增技能）使用 `repo/vX.Y.Z`
 - 版本升级记录见 [CHANGELOG.md](CHANGELOG.md)
 
