@@ -11,7 +11,7 @@ Tag 约定：技能版本 tag 为 `技能名/vX.Y.Z`；仓库级变更 tag 为 `
 - 仓库骨架：`skills/` 目录结构、README、LICENSE（CC BY-NC 4.0）、CHANGELOG、.gitignore
 - 初始收录三个技能（均 v1.0.0，见下）
 
-## [bid-tender-review/v1.0.0] - 2026-10-15
+## [tender-document-review/v1.0.0] - 2026-10-15
 
 ### Added
 
