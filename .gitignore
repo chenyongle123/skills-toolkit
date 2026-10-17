@@ -1,0 +1,11 @@
+# 默认忽略工作过程中的临时文件
+*.log
+*.tmp
+*~
+.DS_Store
+Thumbs.db
+
+# 测试与临时目录
+_test*/
+sandbox/
+output/
