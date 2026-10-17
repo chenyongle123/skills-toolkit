@@ -6,20 +6,29 @@
 
 | 技能 | 版本 | 定位 |
 |---|---|---|
-| [tender-document-review](skills/tender-document-review/) | v1.0.0 | 投标方视角招标文件审查：将限制性条款规范、不漏、可追溯地提取为七类结构化清单 |
+| [tender-document-review](skills/tender-document-review/) | v1.1.0 | 投标方视角招标文件审查：将限制性条款规范、不漏、可追溯地提取为七类结构化清单 |
 | [business-contract-review](skills/business-contract-review/) | v1.0.0 | 中国法商务合同审核：四类合同条款级审查，红黄绿分级 + 可用 redline 修改建议 |
 | [delivery-audit](skills/delivery-audit/) | v1.0.0 | 交付前审查闸门：五条铁律 + 四段闸门 + 三态输出（✅/⚠️/❌） |
 
 ## 技能关系
 
 ```
-tender-document-review ──┐
-                    ├──> delivery-audit（交付前审查闸门，可点名加载领域清单）
-business-contract-review ──┘
+tender-document-review ─────┐
+                            ├──> delivery-audit（交付前审查闸门，可点名加载领域清单）
+business-contract-review ───┘
 ```
 
 - `delivery-audit` 是通用收口闸门，任何产出结论/数值/交付物的任务均适用
 - 两个审查类技能自带内部自检步骤；环境中存在 `delivery-audit` 且用户点名时可加大审查力度
+
+## 仓库结构
+
+```
+skills/<技能名>/   技能包（仅含运行必需文件：SKILL.md、README、references/）
+docs/              仓库级文档（开发设计备忘等，不属于任何技能包）
+```
+
+> 原则：技能包内只放 Agent 运行所需内容；开发过程记录、验证报告、项目个案一律不入包。
 
 ## 安装
 
@@ -33,7 +42,6 @@ cp -r skills/delivery-audit ~/.workbuddy/skills/
 ```
 
 ## 版本管理约定
-
 - 每个技能独立版本号（见各自 `SKILL.md` 的 `version:` 字段）
 - Git tag 采用 `技能名/vX.Y.Z` 前缀，如 `tender-document-review/v1.1.0`
 - 仓库级变更（README/CI/新增技能）使用 `repo/vX.Y.Z`
