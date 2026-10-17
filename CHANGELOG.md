@@ -28,7 +28,7 @@ Tag 约定：技能版本 tag 为 `技能名/vX.Y.Z`；仓库级变更 tag 为 `
 ### Added（v1.3.0 提取规则增量，源自 13 份真实招标文件实测）
 
 - **补遗改强制输入**：招标文件正本＋全部补遗/答疑为强制输入，缺失即阻断（原为「可含」）
-- **限价四态判定**：`amount / rate / pending_clarification / provisional_price`，并扫异名（最高限价、控制价、控制费率、下浮率门槛、暂定价、第 N 包）；含「模板残留」裁定——前附表与正文不一致时以前附表为准并标注
+- **限价四态判定**：`amount / rate / pending / tentative / none / unmentioned`（与 schema `price_cap_form` 枚举一致），并扫异名（最高限价、控制价、控制费率、下浮率门槛、暂定价、第 N 包）；含「模板残留」裁定——前附表与正文不一致时以前附表为准并标注
 - **值三态判定**：`stated / unstated / draft_blank / external_missing`，区分「文件未载明」「留白未定稿」「外指文件未随附」三种缺失性质
 - **无分页文档出处规范**：Word 等无稳定页码文档用「章 → 条款号 → 段落号/表号」四元组定位
 
