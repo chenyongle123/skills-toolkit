@@ -14,6 +14,33 @@ Tag 约定：技能版本 tag 为 `技能名/vX.Y.Z`；仓库级变更 tag 为 `
 
 - 开发过程文档迁出技能包：`未来升级方向备忘` 脱敏后移至 `docs/`，`v8行为验证报告` 删除（结论已提炼进规则变更记录）
 
+## [tender-document-review/v1.3.0] - 2026-10-17
+
+> 说明：v1.2.0（机读产物）当时未单独提交，其内容随本版本一并入库，故此处合并记录。
+
+### Added（v1.2.0 机读产物）
+
+- 第十节「机读产物（tender-facts.json）」：七类清单同步输出 JSON（套件语境即 `01_tender-facts.json`），字段与套件契约唯一真源逐字段一致；**不新增任何提取与判断**，JSON 与 Markdown 不一致时以 Markdown 为准
+- `assets/tender-facts.schema.json`：机读产物字段约束
+- `scripts/emit_facts.py`：零依赖序列化便利脚本，含结构校验与条目数守恒自检（只报告差异，不自动补猜）
+- `references/判词库.md`：「规则变更记录」追加 v9/v10 两条
+
+### Added（v1.3.0 提取规则增量，源自 13 份真实招标文件实测）
+
+- **补遗改强制输入**：招标文件正本＋全部补遗/答疑为强制输入，缺失即阻断（原为「可含」）
+- **限价四态判定**：`amount / rate / pending_clarification / provisional_price`，并扫异名（最高限价、控制价、控制费率、下浮率门槛、暂定价、第 N 包）；含「模板残留」裁定——前附表与正文不一致时以前附表为准并标注
+- **值三态判定**：`stated / unstated / draft_blank / external_missing`，区分「文件未载明」「留白未定稿」「外指文件未随附」三种缺失性质
+- **无分页文档出处规范**：Word 等无稳定页码文档用「章 → 条款号 → 段落号/表号」四元组定位
+
+### Fixed
+
+- 评分表增加**分值闭合验算**：各评分表分值合计须等于该表总分，不等即列为待澄清
+- `description` 删除裸触发词「投标文件、标书」（改为「招标文件中的『投标文件格式』章」），避免与套件下游技能路由双命中
+
+### Changed
+
+- 契约版本 `schema_version / contract_schema_version` 由 `0.3` 升至 `0.4`（新增 `price_cap_form`、`value_state` 两个**可选**字段，向后兼容）
+
 ## [tender-document-review/v1.1.2] - 2026-10-17
 
 ### Fixed
