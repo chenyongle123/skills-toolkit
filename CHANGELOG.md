@@ -4,6 +4,31 @@
 
 Tag 约定：技能版本 tag 为 `技能名/vX.Y.Z`；仓库级变更 tag 为 `repo/vX.Y.Z`。
 
+## [tender-document-review/v1.3.1] - 2026-10-17
+
+> 专家复审（换模型）后的文档/契约一致性补丁，无提取规则变更；`source_rule_seq` 仍为 10，`schema_version` 仍为 0.4（向后兼容）。
+
+### Fixed
+
+- **M1 值状态口径对齐**：SKILL.md「值状态」判定措辞由"每条必判/每条填"放宽为"推荐必做；机读字段 `value_state` 可选，未判定置空串"，与 schema（v0.16 delta D3 明确为可选、不进 required）及判词库一致
+- **M6 emit_facts.py 注释修正**：`clauses[].id` 缺省生成与"稳定主键、排序变化不改"自相矛盾——改为"自填 id 才是稳定主键；依赖缺省 id 时顺序变化 id 即变"
+- **M7 schema 自述软化**：不再声称"与计划 §6.2 唯一真源完全一致"，改为"与 v0.16 delta 定义一致（§6.2 回填待 v0.16 合并）"
+
+### Changed
+
+- **M3 命名统一**：「值三态」→「值状态（四值）」（SKILL.md + 判词库 v10 + v0.16 delta D3）
+- **M4 判词库 v10 标题**：「限价异名与形态四态分流」→「限价异名与形态六值分流（四形态＋两兜底）」
+- **M2 清单模板补列**：七类表通用字段增「值状态」列，⑤ 类表增「限价形态」列，落实四重呼应
+- **M5 skill README**：「机读产物」说明补 v1.3.0 增量；「四重呼应」扩为「六重呼应」（增 assets schema + emit_facts.py）
+- 版本 `1.3.0` → `1.3.1`（frontmatter / 正文 / 第十节示例 / schema 自述等自引用同步）
+
+## [repo/v1.2.0] - 2026-10-17
+
+### Changed
+
+- README 技能一览表 `tender-document-review` 版本号 v1.1.0 → v1.3.0
+- CHANGELOG 限价四态枚举名由错误写法 `pending_clarification / provisional_price` 修正为 `pending / tentative`（与 schema / SKILL.md / delta 对齐）
+
 ## [repo/v1.1.0] - 2026-10-17
 
 ### Added

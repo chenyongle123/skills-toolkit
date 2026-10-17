@@ -6,7 +6,7 @@
 
 | 技能 | 版本 | 定位 |
 |---|---|---|
-| [tender-document-review](skills/tender-document-review/) | v1.3.0 | 投标方视角招标文件审查：将限制性条款规范、不漏、可追溯地提取为七类结构化清单 |
+| [tender-document-review](skills/tender-document-review/) | v1.3.1 | 投标方视角招标文件审查：将限制性条款规范、不漏、可追溯地提取为七类结构化清单 |
 | [business-contract-review](skills/business-contract-review/) | v1.0.0 | 中国法商务合同审核：四类合同条款级审查，红黄绿分级 + 可用 redline 修改建议 |
 | [delivery-audit](skills/delivery-audit/) | v1.0.0 | 交付前审查闸门：五条铁律 + 四段闸门 + 三态输出（✅/⚠️/❌） |
 
