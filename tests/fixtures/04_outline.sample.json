@@ -1,0 +1,32 @@
+{
+  "schema_version": "0.1",
+  "chapters": [
+    {"id": "n-1001", "number": "一", "title": "商务标", "order": 1,
+     "parent": null, "depends_on": [], "word_target": 18000,
+     "scoring_refs": ["S-01"], "status": "pending", "notes": ""},
+    {"id": "n-1101", "number": "1", "title": "投标函格式", "order": 2,
+     "parent": "n-1001", "depends_on": [], "word_target": 1500,
+     "scoring_refs": [], "status": "pending", "notes": ""},
+    {"id": "n-1105", "number": "5", "title": "商务偏差声明函", "order": 6,
+     "parent": "n-1001", "depends_on": [], "word_target": 9500,
+     "scoring_refs": ["T3-1"], "status": "pending", "notes": ""},
+    {"id": "n-1106", "number": "6", "title": "资格审查文件", "order": 7,
+     "parent": "n-1001", "depends_on": [], "word_target": 8450,
+     "scoring_refs": ["T3-5"], "status": "pending", "notes": ""},
+    {"id": "n-1111", "number": "6.1", "title": "投标人基本情况表", "order": 8,
+     "parent": "n-1106", "depends_on": [], "word_target": 800,
+     "scoring_refs": [], "status": "pending", "notes": ""},
+    {"id": "n-2001", "number": "二", "title": "技术标", "order": 25,
+     "parent": null, "depends_on": [], "word_target": 60000,
+     "scoring_refs": ["S-02"], "status": "pending", "notes": ""},
+    {"id": "n-2102", "number": "2", "title": "项目实施方案（由投标人自行编制）", "order": 27,
+     "parent": "n-2001", "depends_on": [], "word_target": 29500,
+     "scoring_refs": ["T4-3", "T4-D1", "T4-D2", "T4-D3", "T4-S1", "T4-S2.1",
+                      "T4-S2.2", "T4-S2.3", "T4-S3", "T4-S4", "T4-S5", "T4-S6",
+                      "T4-S7", "T4-S8", "T4-S9", "T4-TR"],
+     "status": "pending", "notes": ""},
+    {"id": "n-3001", "number": "三", "title": "价格标", "order": 34,
+     "parent": null, "depends_on": [], "word_target": 8000,
+     "scoring_refs": ["S-03"], "status": "pending", "notes": ""}
+  ]
+}

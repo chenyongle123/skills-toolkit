@@ -2,13 +2,15 @@
 # -*- coding: utf-8 -*-
 """tests/test_stage1_regression.py — v0.16 阶段 1 验收 P0 两项修复的永久回归
 
-覆盖（对应验收记录第五节优先级表 P0×2）：
+覆盖（对应验收记录第五节优先级表 P0×2 + P1）：
   R1 ⓪ D5 加权闭合口径：tender-facts.schema.json 三新字段
      （scoring.total_stated / scoring.weight_basis / scoring.items[].weight）
      + emit_facts.py 两种口径（直接相加 / 加权闭合）验算与回退逻辑；
   R2 ① 01c 章节树保真：FORMAT_CHAPTERS 与原文第七章逐字一致（编号不重排、
      括号说明不删），经 build_bid_plan.py 端到端生成后由
-     verify_format_chapters.py 机检（含负例：重排＋删括号必须被检出）。
+     verify_format_chapters.py 机检（含负例：重排＋删括号必须被检出）；
+  R4 ① 01b 引文逐行机检（check_01b_rawtext.check_items 逻辑回归，合成数据：
+     照录通过；改数值/无省略号截断/锚点不存在必须被检出）。
 
 用法：python tests/test_stage1_regression.py   （退出码 0=全过，1=有失败）
 依赖：零三方依赖（jsonschema 可选，不影响本测试）。
@@ -27,8 +29,11 @@ PY = sys.executable
 EMIT = ROOT / "skills" / "tender-document-review" / "scripts" / "emit_facts.py"
 BUILD = ROOT / "skills" / "bid-response-plan" / "scripts" / "build_bid_plan.py"
 VERIFY = ROOT / "skills" / "bid-response-plan" / "scripts" / "verify_format_chapters.py"
+CONSIST = ROOT / "skills" / "bid-compliance-check" / "scripts" / "check_consistency.py"
 FIXTURES = ROOT / "tests" / "fixtures"
 HEADINGS = FIXTURES / "07_format_headings.shenzhou.json"
+sys.path.insert(0, str(ROOT / "tests"))
+from check_01b_rawtext import check_items  # noqa: E402  （R4：01b 引文机检逻辑）
 
 results = []  # (名称, 通过?, 详情)
 
@@ -217,6 +222,112 @@ def r2_format_chapters(tmp: Path) -> None:
           "rc=%d stdout=%s" % (r.returncode, r.stdout[:400]))
 
 
+# ---------- R3：②-B 跨章一致性（check_consistency.py，全套件唯一实现） ----------
+
+CONSIST_BID = {
+    "schema_version": "0.1", "stage": "writing",
+    "project": {"name": "中能建投深州100MW风电项目EPC总承包工程",
+                "no": "ZJL-SZ-2026-018",
+                "purchaser": "中能建投深州新能源有限公司"},
+    "bid_mode": "normal", "deadline": "2026-11-10T09:30",
+    "style_source": "tender_required",
+}
+
+CH_GOOD = ("# 投标函\n致：中能建投深州新能源有限公司\n"
+           "我司参与中能建投深州100MW风电项目EPC总承包工程（招标编号：ZJL-SZ-2026-018）投标，\n"
+           "投标总报价：12345.67万元，计划2026-12-01开工，2027-06-30全部机组并网发电。\n")
+CH_AMOUNT = ("# 施工组织设计\n中能建投深州100MW风电项目EPC总承包工程计划 2026年12月1日开工，"
+             "总工期 18 个月。\n本章涉及金额 12345.67万元；保证金 80万元。\n")
+CH_BAD = ("# 商务偏差声明函\n针对中能建投深州100MW风电工程EPC总承包（招标编号写成 ZJL-SZ-2026-019）——\n"
+          "本项目无偏差。\n")
+
+
+def r3_consistency(tmp: Path) -> None:
+    bid = tmp / "bid_consist"
+    (bid / "05_chapters").mkdir(parents=True)
+    (bid / "00_metadata.json").write_text(json.dumps(CONSIST_BID, ensure_ascii=False), encoding="utf-8")
+    (bid / "05_chapters" / "03_bid.md").write_text(CH_GOOD, encoding="utf-8")
+    (bid / "05_chapters" / "07_construct.md").write_text(CH_AMOUNT, encoding="utf-8")
+    (bid / "05_chapters" / "09_dev.md").write_text(CH_BAD, encoding="utf-8")
+
+    r = run([CONSIST, "--bid", bid])
+    rep = (bid / "06_compliance" / "consistency-issues.md").read_text(encoding="utf-8") \
+        if (bid / "06_compliance" / "consistency-issues.md").is_file() else ""
+    check("R3-1 跨章一致性：变体/异值检出且 purchaser 与年份不误报",
+          r.returncode == 0 and "ZJL-SZ-2026-019" in rep
+          and "风电工程EPC总承包" in rep
+          and "新能源有限公司" not in rep.split("疑似变体")[-1].split("\n")[0]
+          and "`2026`" not in rep and "`2027`" not in rep,
+          "rc=%d stdout=%s" % (r.returncode, r.stdout[:300]))
+
+    # 负例一：stage 非 writing → 拒跑（②-B 前置）
+    meta2 = json.loads(json.dumps(CONSIST_BID)); meta2["stage"] = "plan_confirmed"
+    (bid / "00_metadata.json").write_text(json.dumps(meta2, ensure_ascii=False), encoding="utf-8")
+    r = run([CONSIST, "--bid", bid])
+    check("R3-2 负例：stage 非 writing 拒跑", r.returncode == 2 and "writing" in (r.stdout + r.stderr),
+          "rc=%d" % r.returncode)
+
+    # 负例二：05_chapters 缺失 → 拒跑
+    import shutil as _sh
+    (bid / "00_metadata.json").write_text(json.dumps(CONSIST_BID, ensure_ascii=False), encoding="utf-8")
+    _sh.rmtree(bid / "05_chapters")
+    r = run([CONSIST, "--bid", bid])
+    check("R3-3 负例：无 05_chapters 拒跑", r.returncode == 2 and "05_chapters" in (r.stdout + r.stderr),
+          "rc=%d" % r.returncode)
+
+
+# ---------- R4：① 01b 引文逐行机检（check_01b_rawtext.check_items 逻辑回归） ----------
+
+RT_UNITS = {
+    "P100": "本工程可利用率取全部机组缺陷责任期满时的平均值作为考核可利用率。"
+            "最终验收的条件，全场风电机组可利用率不少于98%，单台风机的可利用率达到96%及以上。",
+    "P200": "在缺陷责任期内，承包人对功率曲线的保证值应大于或等于保证功率曲线为基础计算出的"
+            "风机发电量的97%，单台风机的功率曲线的保证值达到95%。",
+    "P300": "所有涉及到的通信网络设备选用国产设备，操作系统必须选用 UNIX 等国产操作系统。",
+    "P301": "所有涉及到的通信网络设备选用国产设备，操作系统必须选用 LINUX 等国产操作系统。",
+    "T1R10": "1.3.3\t质量标准\t工程质量符合国家、行业现行规范标准，一次验收合格率100%。符合申报优质工程奖。",
+}
+
+def _item(sid, raw):
+    return {"id": sid, "clause": "合成条款", "page": "n/a-无分页",
+            "requirement": "合成要求", "required_value": "≥1", "unit": "个",
+            "tolerance": "", "no_negative_allowed": True, "raw_text": raw}
+
+
+def r4_01b_rawtext(tmp: Path) -> None:
+    # 1. 照录（含省略号切片、次级锚点措辞差异、表格行锚点）→ 零失败
+    good = [
+        _item("sp-101", "全场风电机组可利用率不少于98%……（P100）"),
+        _item("sp-102", "……单台风机的可利用率达到96%及以上。（P100）"),
+        _item("sp-103", "承包人对功率曲线的保证值应大于或等于保证功率曲线为基础计算出的风机发电量的97%……（P200）"),
+        _item("sp-104", "操作系统必须选用UNIX等国产操作系统。（P300；P301重申为LINUX）"),
+        _item("sp-105", "一次验收合格率100%。（前附表1.3.3，T1R10）"),
+    ]
+    f = check_items(RT_UNITS, good)
+    check("R4-1 01b 引文照录通过（省略号/次级锚点/表行锚点）", not f, "; ".join(f))
+
+    # 2. 负例：改数值（98%→99%）→ 检出
+    bad = [_item("sp-201", "全场风电机组可利用率不少于99%……（P100）")]
+    f = check_items(RT_UNITS, bad)
+    check("R4-2 负例：引文改数值被检出", f and "不在任何锚点" in f[0], "; ".join(f))
+
+    # 3. 负例：无省略号静默截断（引文止于「风机发电量」，原文后续「的97%」）→ 检出
+    bad = [_item("sp-202", "承包人对功率曲线的保证值应大于或等于保证功率曲线为基础计算出的风机发电量（P200）")]
+    f = check_items(RT_UNITS, bad)
+    check("R4-3 负例：无省略号截断被检出", f and "未落在原文边界" in f[0], "; ".join(f))
+
+    # 4. 负例：锚点不存在（P999）→ 检出
+    bad = [_item("sp-203", "全场风电机组可利用率不少于98%……（P999）")]
+    f = check_items(RT_UNITS, bad)
+    check("R4-4 负例：锚点不存在被检出", f and "不存在于原文" in f[0], "; ".join(f))
+
+    # 5. 负例：id 重复 → 检出
+    bad = [_item("sp-204", "全场风电机组可利用率不少于98%……（P100）"),
+           _item("sp-204", "……单台风机的可利用率达到96%及以上。（P100）")]
+    f = check_items(RT_UNITS, bad)
+    check("R4-5 负例：id 重复被检出", f and "id 重复" in f[0], "; ".join(f))
+
+
 def main() -> int:
     if not HEADINGS.is_file():
         print("FAIL  缺 headings fixture：%s" % HEADINGS)
@@ -226,6 +337,8 @@ def main() -> int:
         r1_d5_weighted(tmp)
         r1_d5_direct(tmp)
         r2_format_chapters(tmp)
+        r3_consistency(tmp)
+        r4_01b_rawtext(tmp)
     failed = [n for n, ok, _ in results if not ok]
     print("\n%s　%d 项通过 / %d 项失败" % ("PASS" if not failed else "FAIL",
           len(results) - len(failed), len(failed)))

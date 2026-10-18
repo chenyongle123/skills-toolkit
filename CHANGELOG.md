@@ -26,6 +26,65 @@ Tag 约定：技能版本 tag 为 `技能名/vX.Y.Z`；仓库级变更 tag 为 `
 - **`tests/test_stage1_regression.py` R1（12 项）**：加权口径闭合／差异-10／回退 total_stated／回退值注明来源／百分比误录点名／覆盖不全／缺 weight_basis／未录总分；直接相加口径四项回归（未录告警、30 闭合、差异-70、回退闭合）无回归。
 - ⓪ `SKILL.md` 同步：frontmatter 1.5.0、第 5 步 D5 段重写为"两种评分口径"、10.2 JSON 示例与字段表补 3 行；计划书 §6.2 回填 delta（照 `price_cap_form` 先例）。
 
+## [bid-response-plan/v0.4.0] - 2026-10-18
+
+> ① 结构拆分＋契约落地＋01b 首批全量（P1-a/c/d）：按计划书 §5 目录树拆 5 个专职脚本、新增 `validate_plan.py` 全产物契约校验、`outline.schema.json` 落地（04 字段集对齐计划书 §6.2 D4 修正版）、01b 全量抽取第五章「2.性能指标」14 行。
+
+### Added
+
+- **五脚本拆分（计划书 §5 目录树）**：`parse_spec_items.py`（01b）/`parse_format_outline.py`（01c＋CID 单一真源）/`parse_business_forms.py`（03c）/`build_task_cards.py`（03/04/素材缺口清单）/`validate_plan.py`（全产物 schema 校验，只报告不修改；未装 `jsonschema` 降级结构自检并 WARN）；`build_bid_plan.py` 降为总编排器（CLI 不变，R2 端到端回归零改动通过）。各 parse 脚本 docstring 明确诚实定位：**人工抽取常量的序列化器**，非原文自动解析器（① 不读招标原文，计划书 §3.2 边界）。
+- **`assets/outline.schema.json`（04 契约）**：计划书 §6.2 D4 字段集 `id/number/title/order/parent/depends_on/word_target/scoring_refs/status/notes`，`additionalProperties: false`，`id` 模式 `^n-[0-9a-f]{4}$`，`word_target` 注明"非金额、非页数"。
+- **`build_04()` 按计划书 §6.2 重写**：父节点栈推导、`word_target` 按 chapter_id 聚合任务卡、`scoring_refs` 取 S-/T 前缀 source_ref；`schema_version` 0.2→0.1（③ SKILL.md 早已按 0.1 登记，实现才是漂移方；旧产物的 `style_source`/`typography` 属 01c 职责，04 不重复承载）。
+- **`tests/check_01b_rawtext.py`（01b 引文逐行机检）**：raw_text 引文与招标原文比对（空白＋中英标点归一化后子串匹配；片段首尾须落原文边界，防无省略号静默截断；次级锚点允措辞差异如 UNIX→LINUX）；负向验证三种腐败形态（改数值/静默截断/锚点不存在）均被检出。
+
+### Changed
+
+- **01b 全量抽取第一批（P1-d）**：`SPEC_ITEMS` 2→16 行——新增第五章「发包人要求」2.性能指标（P3333–P3353）14 行（sp-003–sp-016）：可量化 8 行（覆盖验收基准 7 条：全场/单台可利用率 98%/96%、功率曲线 97%/95%、噪声日/夜 55/45dB、年等效小时数 2414h，另收强迫停机率 <5%）＋定性 6 行（主机考核/GB-DL/国产化/等保/智慧电站/调度数据网）；散文章节拆分口径「每个可独立核验的要求一行、并列保证值计多行」写入 docstring。sp-001 条款精确到「通用合同条款9.1.5」（P1356）、sp-002 照录前附表 1.3.3（T1R10）原文；`source.page_range` 与 docstring 如实登记"2.性能指标节已全量、**第五章其余 8 节挂起**，不得冒充全覆盖"。
+- ① `SKILL.md`：frontmatter 0.4.0＋版本头行；§七 表更新为五件套脚本引用＋新增 `validate_plan` 行；生成说明段改写为五脚本结构。
+
+### Fixed
+
+- ① 5 个脚本 docstring 裸 `§` 引用（顿号后第二个跨文档引用丢前缀，scan_doc D2）补「计划书」前缀。
+
+### Tests
+
+- **`tests/test_stage1_regression.py` R4（5 项，累计 24/24 PASS）**：01b 引文机检逻辑固化——照录通过（省略号切片/次级锚点/表行锚点）；负例四项（改数值、无省略号截断、锚点不存在、id 重复）均检出。
+- 验收项目（深州）产物按新实现再生：01b 16 行过 schema；04 按 D4 字段集再生后 0 违约；②-A 重跑废标项 11（未响应 0）、资格项 7（未响应 0）、商务表 24/24。
+
+## [bid-compliance-check/v0.3.0] - 2026-10-18
+
+> ② references 七件落地＋跨章一致性骨架版（P1-b/c）：「判词库-投标侧」派生、七类检查细则文档化、`check_consistency.py` 独立实现（全套件唯一实现）。
+
+### Added
+
+- **`references/` 七件**：`判词库-投标侧.md`（派生自 ⓪ v1.5.0：六类扫描词＋第六类投标侧补充词——占位符清零/无偏差显式/禁照抄/模糊承诺/金额日期跨章一致/交叉引用；文件头注明派生来源与同步日期，**只取签章/暗标/废标词条不复制整份**）、`废标项比对方法.md`（A 类：主覆盖比对＋跨类否决级补充扫描＋孤儿卡四类成因）、`响应偏离表模板.md`（B 类：行来源 01b 逐行、禁照抄、正偏离须具体、no_negative_allowed=废标级）、`形式核对清单.md`（C 类）、`暗标匿名检查.md`（D10/D11：语境二分＋8 项终检）、`雷同自查清单.md`（计划书 §8.6：四道防线＋套话密度＋结构模板化＋独立性自查）、`资质时效核查.md`（F 类：四态判定＋换证窗口口径 3–6 个月未载明按 3 个月）。
+- **`scripts/check_consistency.py`（②-B 骨架版）**：名称/编号精确基准比对全自动（purchaser 名先行置换再扫项目名变体；编号正则放宽"编号写成"一类无冒号形态；金额不收裸 4 位以上数字、工期不收"年"，防年份误报——R3-1 固化）；金额/日期/工期为信号扫描（纯文本不可判同语义）明示人工甄别，不假装定性；输出 `06_compliance/consistency-issues.md`（名称基准/编号基准/金额集合/日期集合/工期集合/G5 提示六节）；rc 0/2（stage≠writing 或无 05_chapters 拒跑）。
+- ② `SKILL.md` §三 新增"检查类操作细则"索引表（七件 references＋②-A/②-B 脚本）；`README.md` 检查类节加七件明细表＋脚本清单。
+
+### Changed
+
+- `check_compliance.py` 偏离表齐全性行口径随 01b 抽取进度更新："01b 现有 N 条（2.性能指标节已全量 14 行，第五章其余 8 节挂起），逐行一致性以 01b 全量后重跑为准"。
+
+### Tests
+
+- **`tests/test_stage1_regression.py` R3（3 项）**：跨章一致性变体/异值检出且 purchaser 与年份不误报；负例 stage 非 writing 拒跑；负例无 05_chapters 拒跑。
+
+## [repo/v1.5.0] - 2026-10-18
+
+> P1 四项收口的仓库级配套：回归测试扩容（R3/R4）、锁文件刷新、③ `knowledge.schema.yaml` 契约登记（③ 未升版）、验收记录追加 P1 执行结果节。
+
+### Added
+
+- **`tests/test_stage1_regression.py` R3＋R4（累计 24 项）**：R3 跨章一致性三项（②-B 骨架回归，含 purchaser/年份不误报负例）；R4 01b 引文机检逻辑五项（合成数据，自包含）。
+- **`skills/bid-technical-proposal/assets/knowledge.schema.yaml`（③ 1 份单副本，不进 lock）**：02b 素材契约声明式定义（`id_pattern: ^kn-\d{3,}$`、五必填字段 `id/title/use_when/tags/verifiable_facts`），与 facts 分界、两级素材库；③ `SKILL.md` §六 契约表登记一行（阶段 1 契约）。
+- **`tests/fixtures/02b_knowledge.sample.md`**：采用计划书 §6.3 原文示例节点 kn-012；`validate_contract.py` 新增 C5c 校验（frontmatter 解析＋required＋id_pattern＋tags 非空），负验证（id 改 `kn-01` 被拒后恢复）。
+- **`tests/fixtures/04_outline.sample.json`**：8 节点从深州真实产物提取（order 1/2/6/7/8/25/27/34、n-2102 word_target 29500 含 16 个 T4-\* scoring_refs、depends_on 如实为空），注册入 FIXTURE_MAP 过 C5。
+
+### Changed
+
+- `skills-lock.json` 经 `validate_contract.py --write-lock` 刷新：①=0.4.0／②=0.3.0、`outline.schema.json` hash 入锁；只校验模式复跑 PASS（C1/C2/C5/C10）。
+- `docs/v0.16_阶段1验收记录.md` 追加「六、P1 执行结果」节（原第六节顺延为第七节）：P1-a/b/c/d 状态与机检证据；#1 转为部分通过（2.性能指标节 14 行 vs ≥7 基准，第五章其余 8 节挂起已如实自记）、#5 阻塞解除（01b 基线 16 条已备，完整验证仍待 writing 阶段）。历史判定不改写。
+
 ## [bid-response-plan/v0.3.0] - 2026-10-18
 
 > ① 01c 章节树保真（阶段 1 验收 #2 根因修复）：技术标编号连续化重排 6 处 + 章节名删括号说明 3 处，改为按原文档真实序列固化 + 新增机检。
@@ -61,7 +120,7 @@ Tag 约定：技能版本 tag 为 `技能名/vX.Y.Z`；仓库级变更 tag 为 `
 ### Added（X 层附录）
 
 - **换模型交叉验证（X 层）结果与合并去重**：盲审工单 `workdir/cross-audit-2026-10-18.md`（1321 行自包含，含被审材料全文 + 12 项证据包，生成时经污染自检剔除 2 处真实自污染）投递另一模型回收，按「位置＋类型」合并去重：
-  - **A 双源确认 1 项**（`outline.schema.json` 缺失，本方 §4.1 已记录）；
+  - **A 双源确认 1 项**（`outline.schema.json` 缺失，本方验收记录第四节已记录）；
   - **B 本方盲区、证据成立 4 项**（NOTICE／② references 7 个／脚本结构／④ README）；
   - **C 对方提到但不成立、已反驳 3 项**（LICENSE 实际存在且为 CC BY-NC 4.0；⓪ SKILL.md 已为 1.4.1，对方基于旧快照；阶段 1 验收已用真实招标文件端到端执行）；
   - **D 对方漏看 1 项**（② scripts 实际 2 个，`check_business.py` v0.2.2 新增未被计入）。
@@ -81,8 +140,8 @@ Tag 约定：技能版本 tag 为 `技能名/vX.Y.Z`；仓库级变更 tag 为 `
 
 ### Added
 
-- **`bid-compliance-check/scripts/check_business.py`（新建）**：M8 商务表专项检查，对应计划书 §11.2 阶段 1 验收第 9 条与 §5 目录树。
-  该文件此前被 §5 点名、并被回归标记 M7（`regression_markers.json`）锁定 `must_contain: ["check_business.py"]`，**但仓库内从未实装**——属阶段 1 收口的真实缺口。检查项：
+- **`bid-compliance-check/scripts/check_business.py`（新建）**：M8 商务表专项检查，对应计划书 §11.2 阶段 1 验收第 9 条与计划书 §5 目录树。
+  该文件此前被计划书 §5 点名、并被回归标记 M7（`regression_markers.json`）锁定 `must_contain: ["check_business.py"]`，**但仓库内从未实装**——属阶段 1 收口的真实缺口。检查项：
   - **B1 零金额（阻断级）**：扫描 `03c` 业务语义字段（`name`/`required_fields`/`consistency_rules`）与 `seal`，检出金额即以退出码 1 报出。覆盖四类形态——数字+金额单位、货币符号、中文大写（如「壹拾贰万元整」）、千分位；`seal` 仅查强特征以放行「按前附表3.4.1」类条款号引用，并豁免 `id`/`tender_page`/`chapter_id`/`copies`/`filled_file` 等结构位置字段。
   - B2 `required_fields` 齐备、B3 `seal` 齐备、B4 `chapter_id` 解析到 `01c`、B5 `consistency_rules` 三条硬性规则覆盖。
   - **B7 诚实标注**：「03c 表数＝招标商务格式章要求表数」因 ② 不读招标原文而**不可独立机检**，标注以 ① 抽取声明为准，不作无源断言。
@@ -104,7 +163,7 @@ Tag 约定：技能版本 tag 为 `技能名/vX.Y.Z`；仓库级变更 tag 为 `
 ### Notes
 
 - **中文大写金额正则首版误加 `$` 锚点**，导致「壹拾贰万元整」漏检（首轮测试 rc=0、未阻断），而中文大写恰是最典型的投标报价写法。已修正为「大写数字起 + 进位/数字 + 可选万/亿 + **必有元/圆** + 可选整」，并要求必有「元/圆」以避免「贰级资质」类误报。此为**测试实际抓出的缺陷**，非事后补述；修正后 4 类形态全拦下、3 类负例全放行。
-- 「表数＝招标格式章要求表数」（§11.2 #9 前半）在当前架构下**无法独立机检**：① 的 `BUSINESS_FORMS` 为硬编码常量（bf-01~bf-24，取自深州项目第七章），② 不读招标原文、03c schema 亦无期望表数字段。已如实标注为「以 ① 抽取声明为准」，未伪造通过。
+- 「表数＝招标格式章要求表数」（计划书 §11.2 #9 前半）在当前架构下**无法独立机检**：① 的 `BUSINESS_FORMS` 为硬编码常量（bf-01~bf-24，取自深州项目第七章），② 不读招标原文、03c schema 亦无期望表数字段。已如实标注为「以 ① 抽取声明为准」，未伪造通过。
 
 ## [delivery-audit/v1.1.3] - 2026-10-18
 
@@ -181,7 +240,7 @@ Tag 约定：技能版本 tag 为 `技能名/vX.Y.Z`；仓库级变更 tag 为 `
 
 ### Added
 
-- v1.1.0：M 层机器自检（M1–M7，`scripts/scan_doc.py`）、X 层换模型交叉验证（盲审工单模板 `references/cross-audit-template.md`）、SELF-ONLY 四态输出、结构性变更后强制回扫（§7）
+- v1.1.0：M 层机器自检（M1–M7，`scripts/scan_doc.py`）、X 层换模型交叉验证（盲审工单模板 `references/cross-audit-template.md`）、SELF-ONLY 四态输出、结构性变更后强制回扫（计划书 §7）
 - v1.1.1：M6 版本一致检查
 - v1.1.2：M7 回归标记（防假修复）——JSON 钉死"错词必须消失/对词必须在节内出现"；强制"完成/已修复"声明须 M7 绿 + X 层完成，否则最高标 ⚠️ SELF-ONLY 并显式注明未经独立复核
 
@@ -248,7 +307,7 @@ Tag 约定：技能版本 tag 为 `技能名/vX.Y.Z`；仓库级变更 tag 为 `
 
 - **M1 值状态口径对齐**：SKILL.md「值状态」判定措辞由"每条必判/每条填"放宽为"推荐必做；机读字段 `value_state` 可选，未判定置空串"，与 schema（v0.16 delta D3 明确为可选、不进 required）及判词库一致
 - **M6 emit_facts.py 注释修正**：`clauses[].id` 缺省生成与"稳定主键、排序变化不改"自相矛盾——改为"自填 id 才是稳定主键；依赖缺省 id 时顺序变化 id 即变"
-- **M7 schema 自述软化**：不再声称"与计划 §6.2 唯一真源完全一致"，改为"与 v0.16 delta 定义一致（§6.2 回填待 v0.16 合并）"
+- **M7 schema 自述软化**：不再声称"与计划书 §6.2 唯一真源完全一致"，改为"与 v0.16 delta 定义一致（计划书 §6.2 回填待 v0.16 合并）"
 
 ### Changed
 
