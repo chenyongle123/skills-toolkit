@@ -95,10 +95,11 @@ def main():
             units[parts[0]] = parts[-1]
 
     fails = check_items(units, psi.SPEC_ITEMS)
+    n_ch5 = sum(1 for it in psi.SPEC_ITEMS if it["clause"].startswith("第五章"))
     n_quant = sum(1 for it in psi.SPEC_ITEMS[2:]
                   if re.search(r"[<>≥≤]", it["required_value"]) and it["unit"])
-    print(f"条目总数 {len(psi.SPEC_ITEMS)}（第五章2.性能指标新增 {len(psi.SPEC_ITEMS)-2}，"
-          f"其中带比较符可量化 {n_quant}）")
+    print(f"条目总数 {len(psi.SPEC_ITEMS)}（第五章已全量 {n_ch5} 行：2.性能指标14＋3.勘察设计69"
+          f"＋5.调试验收5＋6.施工工期16；挂起 4/7/8/9 节，其中带比较符可量化 {n_quant}）")
     if fails:
         print("FAIL")
         for f in fails:
