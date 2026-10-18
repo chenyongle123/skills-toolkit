@@ -38,7 +38,7 @@ from pathlib import Path
 SCHEMA_VERSION = "0.4"
 CONTRACT_SCHEMA_VERSION = "0.4"
 DEFAULT_RULE_SEQ = 10
-FALLBACK_SKILL_VERSION = "1.3.1"
+FALLBACK_SKILL_VERSION = "1.4.0"
 
 ROOT_REQUIRED = [
     "schema_version", "contract_schema_version", "source_skill_version", "source_rule_seq",

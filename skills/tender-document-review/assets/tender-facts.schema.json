@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "tender-facts.schema.json",
   "title": "tender-facts.json（套件语境即 01_tender-facts.json）",
-  "description": "tender-document-review v1.3.1 机读产物。字段集与 **v0.16 delta** 定义一致（price_cap_form / value_state 两个可选字段由 v0.16 delta 新增；计划书 §6.2 回填待 v0.16 合并）；本文件是其机器可读约束，不含契约以外的字段。",
+  "description": "tender-document-review v1.4.0 机读产物。字段集与 **v0.16 计划书 §6.2** 定义一致（price_cap_form / value_state 两个可选字段由 v0.16 delta 新增，已回填计划书）；本文件是其机器可读约束，不含契约以外的字段。",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -89,7 +89,7 @@
             "description": "仅取备注中明示的后果；未载明写「后果未载明」，不得由 AI 评定"
           },
           "remark": {"type": "string", "description": "备注列照录（含「以最新澄清为准」等）"},
-          "note": {"type": "string", "description": "扫描件时写「扫描件」；其余置空"}
+          "note": {"type": "string", "description": "扫描件写「扫描件」；无分页文档（docx）写「无分页文档」；其余置空。page 字段在无分页文档下填 n/a-无分页，定位精度由 clause＋line（段落号／表号）承担"}
         }
       }
     },
