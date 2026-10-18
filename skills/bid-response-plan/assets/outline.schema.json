@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "outline.schema.json",
+  "title": "04_outline.json（章节树/目录骨架）",
+  "description": "计划书 §6.2（D4 修正）。由 ① 生成：id/number/title 逐字取自 01c；order/depends_on/word_target/scoring_refs/status/notes 为套件派生。**只记结构与位置，不含任何金额**；评分点落点不得改动招标规定的章节名（铁律 2），冲突在节点 notes 注明（M3）。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "chapters"],
+  "properties": {
+    "schema_version": {"const": "0.1"},
+    "chapters": {
+      "type": "array",
+      "description": "章节树；顺序即展示顺序，id 稳定、排序变化不改",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "number", "title", "order", "parent",
+                     "depends_on", "word_target", "scoring_refs", "status", "notes"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^n-[0-9a-f]{4}$",
+            "description": "稳定主键，与 01c 同一节点同一 id"
+          },
+          "number": {
+            "type": "string",
+            "description": "章序号，仅为展示，照录（第一章 / 1 / 一）"
+          },
+          "title": {
+            "type": "string",
+            "description": "章节名，逐字取自 01c；任何改写即违反铁律 2"
+          },
+          "order": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "展示顺序（1 起连续递增）"
+          },
+          "parent": {
+            "type": ["string", "null"],
+            "description": "父章节 id（n-xxxx）；顶层章节为 null"
+          },
+          "depends_on": {
+            "type": "array",
+            "items": {"type": "string", "pattern": "^n-[0-9a-f]{4}$"},
+            "description": "依赖的章节 id 列表；无依赖为空数组。只引 id，不得引 number/title"
+          },
+          "word_target": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "本章目标篇幅（该章下任务卡 word_target 合计）；非金额、非页数"
+          },
+          "scoring_refs": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "落入本章的评分点 source_ref（S-xx/Txx-x）；仅供编排参考"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["pending", "writing", "done"],
+            "description": "章节编写状态；① 生成时全部 pending"
+          },
+          "notes": {
+            "type": "string",
+            "description": "评分点与招标章名冲突及处置（M3 要求写）；无冲突置空串"
+          }
+        }
+      }
+    }
+  }
+}
