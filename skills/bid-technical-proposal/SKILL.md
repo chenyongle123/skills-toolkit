@@ -75,7 +75,7 @@ description: 投标技术标正文撰写。按任务卡逐章成文：先取本�
 
 | 项 | 值 |
 |---|---|
-| 读取 | `01`（`contract_schema_version="0.4"`）、`03_bid-plan.json`（`0.1`）、`04_outline.json`（`0.1`）、`02_facts`（`facts.schema.yaml`） |
+| 读取 | `01`（`contract_schema_version="0.4"`）、`03_bid-plan.json`（`0.1`）、`04_outline.json`（`0.1`）、`02_facts`（`facts.schema.yaml`）、`02b_knowledge/*.md` frontmatter（`knowledge.schema.yaml`，阶段 1 契约；素材路由本身随阶段 2 交付） |
 | 产出 | `05_chapters/*.md`（每段带来源标注） |
 | 自检 | 读 `skills-lock.json`，三级降级，不阻断 |
 

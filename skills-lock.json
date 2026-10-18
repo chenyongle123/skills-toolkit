@@ -1,15 +1,15 @@
 {
   "kit_version": "kit/v0.2.0-stage1",
-  "generated_at": "2026-10-18T15:03:12+08:00",
+  "generated_at": "2026-10-18T15:41:02+08:00",
   "skills": {
     "tender-document-review": {
       "version": "1.5.0"
     },
     "bid-response-plan": {
-      "version": "0.3.0"
+      "version": "0.4.0"
     },
     "bid-compliance-check": {
-      "version": "0.2.2"
+      "version": "0.3.0"
     },
     "bid-technical-proposal": {
       "version": "0.1.1"
@@ -63,6 +63,12 @@
     },
     "business-forms.schema.json": {
       "hash": "4d17efa785973e38f1ddc378cd8afb6267922f98a8858b61a0703b16d2fc7417",
+      "copies": [
+        "bid-response-plan"
+      ]
+    },
+    "outline.schema.json": {
+      "hash": "4235cff8f9d76e7aad8521739da94d104ab2b53e241822f8ccd0807d8e3479ff",
       "copies": [
         "bid-response-plan"
       ]

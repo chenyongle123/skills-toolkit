@@ -1,0 +1,47 @@
+# knowledge.schema.yaml —— 02b_knowledge 素材库字段定义
+# 版本：0.1（阶段 1）｜适用：③ 1 份（单副本，**不进 skills-lock**，计划书 §5.2 矩阵）
+# 性质：声明式字段契约（非 JSON Schema）。校验 02b_knowledge/*.md 的 YAML frontmatter；
+#       frontmatter 之后的正文为素材本体（可改写、可组合、可按项目调整），本文件只管 frontmatter。
+# 与 facts 的分界（计划书 §6.3）：素材**可改写**、事实**不可改写**；素材涉及可核查事实时
+#       必须在 verifiable_facts 列 facts id，由 ②/③ 核对事实库——素材里出现的事实值
+#       与 facts 库冲突时以 facts 库为准并报警（铁律 1）。
+# 两级库（§6.3）：skills-toolkit/knowledge/ 为跨项目母库（只由维护人维护）；
+#       <项目>/bid/02b_knowledge/ 为本次项目副本快照，③ **只读这一份**，不直读母库
+#       （母库持续增删，直读会导致两次生成读到不同素材、产物不可复现）。
+
+schema_version: "0.1"
+
+description: >
+  02b_knowledge 素材条目的字段契约。每条素材必须有 id / title / use_when /
+  tags / verifiable_facts 五个 frontmatter 字段；缺 use_when 的素材无法路由，
+  缺 verifiable_facts 声明的素材不得引用任何可核查事实。
+
+id_pattern: "^kn-\\d{3,}$"
+
+required: [id, title, use_when, tags, verifiable_facts]
+
+fields:
+  id:
+    type: string
+    required: true
+    pattern: "^kn-\\d{3,}$"
+    note: 稳定主键，kn- 前缀，排序变化不改
+  title:
+    type: string
+    required: true
+    note: 素材标题（如「高寒地区混凝土冬季施工措施」），人读检索用
+  use_when:
+    type: string
+    required: true
+    note: 适用条件（地域/气温/工艺/业态/业主要求等触发条件）；缺则无法路由到项目
+  tags:
+    type: array
+    required: true
+    note: 检索标签（如 [冬季施工, 混凝土, 高寒]）；至少 1 个
+  verifiable_facts:
+    type: array
+    required: true
+    note: >
+      涉及可核查事实时必须列 facts id（qual-/perf-/pers-/eq-/fin-），无则空数组。
+      非空时：该素材引用的事实值以 facts 库为准，素材正文不得改写事实值；
+      列表为空但正文出现证书编号/合同额等可核查事实即违约。

@@ -60,6 +60,7 @@ SCHEMAS = {
     "format-outline.schema.json": ["bid-response-plan"],
     "bid-plan.schema.json": ["bid-response-plan"],
     "business-forms.schema.json": ["bid-response-plan"],
+    "outline.schema.json": ["bid-response-plan"],
     "compliance-report.schema.json": ["bid-compliance-check"],
 }
 
@@ -71,6 +72,7 @@ FIXTURE_MAP = {
     "format-outline.schema.json": ["01c_format-outline.sample.json"],
     "bid-plan.schema.json": ["03_bid-plan.sample.json"],
     "business-forms.schema.json": ["03c_business-forms.sample.json"],
+    "outline.schema.json": ["04_outline.sample.json"],
     "compliance-report.schema.json": ["06_compliance.sample.json"],
 }
 
@@ -238,6 +240,44 @@ def check_facts_fixture() -> None:
                     err("C5", f"02_facts.{sec_name}[{idx}] 缺必填字段 {f}")
 
 
+# ---------- C5c ----------
+def check_knowledge_fixture() -> None:
+    """C5c：02b_knowledge.sample.md 的 frontmatter 对照 knowledge.schema.yaml（自定义声明式契约）。
+
+    背景：knowledge.schema.yaml 为阶段 1 新增（③ 单副本，不进 lock——计划书 §5.2 矩阵）。
+    同 facts C5b 的理由：schema 不得孤儿化，必须有实例校验锚定。
+    """
+    if yaml is None:
+        notes.append("PyYAML 不可用，C5c 跳过（需运行时安装 PyYAML）")
+        return
+    schema_path = SKILLS / "bid-technical-proposal" / "assets" / "knowledge.schema.yaml"
+    data_path = FIXTURES / "02b_knowledge.sample.md"
+    if not schema_path.exists():
+        err("C5", f"knowledge schema 缺失：{schema_path}")
+        return
+    if not data_path.exists():
+        err("C5", f"knowledge fixture 缺失：{data_path}")
+        return
+    schema = yaml.safe_load(schema_path.read_text(encoding="utf-8"))
+    text = data_path.read_text(encoding="utf-8")
+    m = re.match(r"^---\s*\n(.*?)\n---\s*\n", text, re.S)
+    if not m:
+        err("C5", "02b_knowledge.sample.md 缺 YAML frontmatter（--- 包围的头）")
+        return
+    fm = yaml.safe_load(m.group(1))
+    if not isinstance(fm, dict):
+        err("C5", "02b_knowledge.sample.md frontmatter 应为映射")
+        return
+    for f in schema.get("required", []):
+        if f not in fm:
+            err("C5", f"02b_knowledge frontmatter 缺必填字段 {f}")
+    pat = schema.get("id_pattern")
+    if pat and isinstance(fm.get("id"), str) and not re.match(pat, fm["id"]):
+        err("C5", f"02b_knowledge id {fm['id']!r} 不匹配 {pat}")
+    if isinstance(fm.get("tags"), list) and not fm["tags"]:
+        err("C5", "02b_knowledge tags 至少 1 个（缺检索标签的素材无法路由）")
+
+
 # ---------- C7 ----------
 def check_upstream_protected() -> None:
     text = (SKILLS / "tender-document-review" / "SKILL.md").read_text(encoding="utf-8")
@@ -378,6 +418,7 @@ def main() -> int:
     check_verbatim()
     check_schemas_and_fixtures()
     check_facts_fixture()
+    check_knowledge_fixture()
     check_upstream_protected()
     check_routing()
     check_handoff()
