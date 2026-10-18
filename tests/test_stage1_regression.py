@@ -10,7 +10,14 @@
      括号说明不删），经 build_bid_plan.py 端到端生成后由
      verify_format_chapters.py 机检（含负例：重排＋删括号必须被检出）；
   R4 ① 01b 引文逐行机检（check_01b_rawtext.check_items 逻辑回归，合成数据：
-     照录通过；改数值/无省略号截断/锚点不存在必须被检出）。
+     照录通过；改数值/无省略号截断/锚点不存在必须被检出）；
+     R4-6 补 load_units 单元提取回归（P 行正文含制表符拼全部字段；
+     T 行末列为空时非末列数据不丢——示例市 T39 图纸资料分配表缺口修复固化）；
+     R4-7 补 T 行单元格边界语义（引文可自单元格边界起并跨单元格、中英标点
+     等价；单元格内非边界截断仍检出——示例市 T1R10 回归与归一化遗漏两缺陷固化）；
+  R5 ② 01b 覆盖口径动态派生（check_compliance.summarize_01b：按 clause
+     「第五章<节号>」分组计数派生已全量/挂起节，根治①每全量一批口令行必
+     漂移的顽疾；01b 缺失时返回 None 不炸）。
 
 用法：python tests/test_stage1_regression.py   （退出码 0=全过，1=有失败）
 依赖：零三方依赖（jsonschema 可选，不影响本测试）。
@@ -33,7 +40,9 @@ CONSIST = ROOT / "skills" / "bid-compliance-check" / "scripts" / "check_consiste
 FIXTURES = ROOT / "tests" / "fixtures"
 HEADINGS = FIXTURES / "07_format_headings.sample-project.json"
 sys.path.insert(0, str(ROOT / "tests"))
-from check_01b_rawtext import check_items  # noqa: E402  （R4：01b 引文机检逻辑）
+sys.path.insert(0, str(ROOT / "skills" / "bid-compliance-check" / "scripts"))
+from check_01b_rawtext import check_items, load_units  # noqa: E402  （R4：01b 引文机检逻辑＋单元提取）
+from check_compliance import summarize_01b  # noqa: E402  （R5：② 01b 覆盖口径动态派生）
 
 results = []  # (名称, 通过?, 详情)
 
@@ -327,6 +336,73 @@ def r4_01b_rawtext(tmp: Path) -> None:
     f = check_items(RT_UNITS, bad)
     check("R4-5 负例：id 重复被检出", f and "id 重复" in f[0], "; ".join(f))
 
+    # 6. load_units 单元提取回归（v0.5.1 修复固化）：
+    #    P 行正文含制表符 → 拼接样式之后全部字段；
+    #    T 行末列为空、数据在非末列（示例市 T39 图纸资料分配表）→ 整行不丢；
+    #    整行照录通过，错行照录被检出。
+    dump = tmp / "synthetic_dump.txt"
+    dump.write_text("P900\tHeading\t9.9\t图纸资料\n"
+                    "T9R1\t1、施工图图纸\t6套\t\n"
+                    "T9R2\t2、竣工图\t\t\n", encoding="utf-8")
+    su = load_units(dump)
+    check("R4-6a load_units：P 行正文含制表符时拼接样式后全部字段",
+          su.get("P900") == "9.9\t图纸资料", repr(su.get("P900")))
+    check("R4-6b load_units：T 行末列为空时非末列数据不丢（T39 缺口修复）",
+          "6套" in su.get("T9R1", "") and "施工图图纸" in su.get("T9R1", ""),
+          repr(su.get("T9R1")))
+    good_t = [_item("sp-205", "1、施工图图纸6套（T9R1）")]
+    f = check_items(su, good_t)
+    check("R4-6c 表格行整行照录通过", not f, "; ".join(f))
+    bad = [_item("sp-206", "2、竣工图6套（T9R1）")]
+    f = check_items(su, bad)
+    check("R4-6d 负例：表格行错行照录被检出", f and "不在任何锚点" in f[0], "; ".join(f))
+
+    # 7. T 行单元格边界语义（v0.5.2 定型，固化两个真实缺陷）：
+    #    a) 引文可自单元格边界起（跨前置单元格，如示例市 T1R10 末列含引文、
+    #       前置列为编号/标准名称），且片段与单元同等归一化（半角括号→全角）；
+    #    b) 单元格内非边界截断（无省略号删句）仍被检出。
+    dump2 = tmp / "synthetic_dump2.txt"
+    dump2.write_text("T8R1\t1.3.3\t质量标准\t工程质量符合(国家、行业现行有关设计、施工、验收规范标准)，一次验收合格率100%。符合申报优质工程奖。\n",
+                     encoding="utf-8")
+    su2 = load_units(dump2)
+    ok = [_item("sp-207", "工程质量符合(国家、行业现行有关设计、施工、验收规范标准)，一次验收合格率100%。（T8R1）")]
+    f = check_items(su2, ok)
+    check("R4-7a T 行引文自单元格边界起并通过（含中英标点等价）", not f, "; ".join(f))
+    bad = [_item("sp-208", "工程质量符合（T8R1）")]
+    f = check_items(su2, bad)
+    check("R4-7b 负例：T 行单元格内非边界截断被检出", f and "未落在原文边界" in f[0], "; ".join(f))
+
+
+# ---------- R5：② 01b 覆盖口径动态派生（summarize_01b，根治硬编码计数漂移） ----------
+
+def r5_summarize_01b(tmp: Path) -> None:
+    # 合成 01b：第五章 2/3/8 节有条目（共 4 行）＋1 条非第五章条款＋9 节缺失
+    def _it(sid, clause):
+        return {"id": sid, "clause": clause, "page": "n/a-无分页",
+                "requirement": "合成要求", "required_value": "≥98%", "unit": "%",
+                "tolerance": "", "no_negative_allowed": True, "raw_text": "……（P3337）"}
+    spec = tmp / "01b_spec-items.json"
+    spec.write_text(json.dumps({
+        "schema_version": "0.1",
+        "source": {"file": "x", "page_range": "y"},
+        "items": [_it("sp-001", "通用合同条款9.1.5"),
+                  _it("sp-010", "第五章2.性能指标1）（1）"),
+                  _it("sp-020", "第五章3.1.1基本要求"),
+                  _it("sp-120", "第五章8.1.1高压电气设备现场试验项目"),
+                  _it("sp-121", "第五章8.2.1总则")],
+    }, ensure_ascii=False), encoding="utf-8")
+    n, cov = summarize_01b(spec)
+    check("R5-1 01b 覆盖口径动态派生（总数/已全量 3 节/挂起 6 节/第五章行数）",
+          n == 5 and "已全量 3 节" in cov
+          and "性能指标 1 行＋勘察设计 1 行＋竣工试验与验收 2 行" in cov
+          and "共 4 行" in cov
+          and "挂起 1.总则/4.施工安装/5.风电场调试、试运行和验收/6.施工工期"
+          "/7.施工质量/9.工程管理" in cov,
+          f"n={n} cov={cov}")
+    n2, cov2 = summarize_01b(tmp / "not-exist.json")
+    check("R5-2 负例：01b 缺失时返回 None 不炸（调用方走读取异常分支）",
+          n2 is None and cov2 is None, f"n={n2}")
+
 
 def main() -> int:
     if not HEADINGS.is_file():
@@ -339,6 +415,7 @@ def main() -> int:
         r2_format_chapters(tmp)
         r3_consistency(tmp)
         r4_01b_rawtext(tmp)
+        r5_summarize_01b(tmp)
     failed = [n for n, ok, _ in results if not ok]
     print("\n%s　%d 项通过 / %d 项失败" % ("PASS" if not failed else "FAIL",
           len(results) - len(failed), len(failed)))

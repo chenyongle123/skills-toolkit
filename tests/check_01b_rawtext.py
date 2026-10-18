@@ -4,12 +4,21 @@
 比对口径（归一化仅去 docx 提取噪声，不改内容）：
 - 去所有空白；
 - 中英标点等价（,＝， ;＝； :＝： !＝！ ?＝？ 等）；
-- 引文按「……」切片，逐片须命中**任一**锚点段/表行文本（子串），且首尾
-  须落在原文标点边界（防无省略号的静默截断/静默删句）；
+- 引文按「……」切片，逐片须命中**任一**锚点段/表行文本（子串，忽略制表符），且首尾
+  须落在原文边界（段首/段尾/标点/句终符；T 行另有单元格边界，见下）——
+  防无省略号的静默截断/静默删句；
   （「；Pxxxx重申」类次级锚点允许措辞差异，如 UNIX→LINUX、原文笔字，
   引文择其清洁一处照录，锚点注释两处都列。）
 - 锚点取 raw_text 尾部括号内的全部 Pxxxx / TxRx 编号（兼容「（合同P1356）」
   「（前附表1.3.3，T1R10）」「（P3352；P3351同）」等记法）。
+
+单元文本提取（load_units）：
+- P 行 `Pxxxx<TAB>样式<TAB>正文` 取正文（正文含制表符时拼接样式之后全部字段）；
+- T 行 `TxRy<TAB>单元格…` 拼接**全部单元格**——数据在非末列且末列为空的
+  表格行（如示例市 T39 图纸资料分配表）此前整行不可见，v0.5.1 修复。
+  制表符保留在单元文本中作为**单元格边界**参与首尾边界判定：片段可跨
+  单元格（如「1、施工图图纸6套」跨名称/数量两格），但起止须落在单元格
+  边界或标点/段首段尾——既补缺口，又防跨单元格蒙混（v0.5.2 定型）。
 """
 import json, re, sys, importlib.util
 
@@ -21,22 +30,46 @@ if "--psi" in sys.argv:
 PUNCT = str.maketrans({",": "，", ";": "；", ":": "：", "!": "！", "?": "？",
                        "(": "（", ")": "）"})
 
+
 def norm(s):
     return re.sub(r"\s+", "", s).translate(PUNCT)
+
+
+def load_units(path):
+    """段号/行号 -> 原文文本（见模块 docstring 单元文本提取规则）。"""
+    units = {}
+    for line in open(path, encoding="utf-8"):
+        parts = line.rstrip("\n").split("\t")
+        if len(parts) >= 2 and re.match(r"^P\d+$", parts[0]):
+            units[parts[0]] = "\t".join(parts[2:]) if len(parts) > 3 else parts[-1]
+        elif len(parts) >= 2 and re.match(r"^T\d+R\d+$", parts[0]):
+            units[parts[0]] = "\t".join(parts[1:])
+    return units
 
 # 片段首尾允许的边界字符（命中任一锚点的归一化文本后判定）
 BOUND = set("。，；：、）」』》”’！？.")
 SENT_END = set("。！？")
 
-def boundary_ok(frag_n, unit_n):
-    """frag_n 须为 unit_n 子串；片段起点前须是标点/段首，片段终点后须是
-    句终符/标点/段尾——防无省略号的静默截断与静默删句。"""
-    i = unit_n.find(frag_n)
+def boundary_ok(frag_n, unit_raw):
+    """frag_n（归一化片段）须为 unit（忽略制表符）子串；片段起点前须是
+    标点/单元格边界/段首，终点后须是句终符/标点/单元格边界/段尾——
+    防无省略号的静默截断与静默删句。unit_raw 保留制表符（T 行=单元格
+    边界）：片段可跨单元格，但起止须落在单元格边界或标点，防跨单元格蒙混。"""
+    flat, idx_map = [], []
+    for k, ch in enumerate(unit_raw):
+        if ch.isspace():
+            continue
+        flat.append(ch)
+        idx_map.append(k)
+    # 与 norm() 同等归一化（去空白＋中英标点等价；maketrans 为逐字符映射，位置不变）
+    flat = "".join(flat).translate(PUNCT)
+    i = flat.find(frag_n)
     if i < 0:
         return False
-    before_ok = i == 0 or unit_n[i - 1] in BOUND
+    before_ok = i == 0 or flat[i - 1] in BOUND or unit_raw[idx_map[i] - 1] == "\t"
     j = i + len(frag_n)
-    after_ok = j == len(unit_n) or frag_n[-1] in SENT_END or unit_n[j] in BOUND
+    after_ok = (j == len(flat) or frag_n[-1] in SENT_END or flat[j] in BOUND
+                or unit_raw[idx_map[j] - 1] == "\t")
     return before_ok and after_ok
 
 def check_items(units, items):
@@ -67,7 +100,7 @@ def check_items(units, items):
         for frag in frags:
             if not any(norm(frag) in norm(units[a]) for a in anchors if a in units):
                 fails.append(f"{it['id']}: 片段不在任何锚点 {anchors} 原文中 → {frag[:36]}…")
-            elif not any(boundary_ok(norm(frag), norm(units[a])) for a in anchors if a in units):
+            elif not any(boundary_ok(norm(frag), units[a]) for a in anchors if a in units):
                 fails.append(f"{it['id']}: 片段首尾未落在原文边界（疑无省略号截断/删句）→ {frag[:36]}…")
     # 附加机检：id 唯一且合模式、schema 必填字段非空
     ids = [it["id"] for it in items]
@@ -88,18 +121,15 @@ def main():
     spec.loader.exec_module(psi)
 
     # 段号/行号 -> 文本
-    units = {}
-    for line in open(DUMP, encoding="utf-8"):
-        parts = line.rstrip("\n").split("\t")
-        if len(parts) >= 3 and re.match(r"^(P\d+|T\d+R\d+)$", parts[0]):
-            units[parts[0]] = parts[-1]
+    units = load_units(DUMP)
 
     fails = check_items(units, psi.SPEC_ITEMS)
     n_ch5 = sum(1 for it in psi.SPEC_ITEMS if it["clause"].startswith("第五章"))
     n_quant = sum(1 for it in psi.SPEC_ITEMS[2:]
                   if re.search(r"[<>≥≤]", it["required_value"]) and it["unit"])
     print(f"条目总数 {len(psi.SPEC_ITEMS)}（第五章已全量 {n_ch5} 行：2.性能指标14＋3.勘察设计69"
-          f"＋5.调试验收5＋6.施工工期16；挂起 4/7/8/9 节，其中带比较符可量化 {n_quant}）")
+          f"＋5.调试验收5＋6.施工工期16＋8.竣工试验与验收131；挂起 1/4/7/9 节，"
+          f"其中带比较符可量化 {n_quant}）")
     if fails:
         print("FAIL")
         for f in fails:
