@@ -4,6 +4,37 @@
 
 Tag 约定：技能版本 tag 为 `技能名/vX.Y.Z`；仓库级变更 tag 为 `repo/vX.Y.Z`。
 
+## [repo/v1.4.0] - 2026-10-18
+
+> 阶段 1 开发缺口补齐：`check_business.py`（M8 商务表专项检查）新建 + D5 评分表分值闭合验算脚本化。
+
+### Added
+
+- **`bid-compliance-check/scripts/check_business.py`（新建）**：M8 商务表专项检查，对应计划书 §11.2 阶段 1 验收第 9 条与 §5 目录树。
+  该文件此前被 §5 点名、并被回归标记 M7（`regression_markers.json`）锁定 `must_contain: ["check_business.py"]`，**但仓库内从未实装**——属阶段 1 收口的真实缺口。检查项：
+  - **B1 零金额（阻断级）**：扫描 `03c` 业务语义字段（`name`/`required_fields`/`consistency_rules`）与 `seal`，检出金额即以退出码 1 报出。覆盖四类形态——数字+金额单位、货币符号、中文大写（如「壹拾贰万元整」）、千分位；`seal` 仅查强特征以放行「按前附表3.4.1」类条款号引用，并豁免 `id`/`tender_page`/`chapter_id`/`copies`/`filled_file` 等结构位置字段。
+  - B2 `required_fields` 齐备、B3 `seal` 齐备、B4 `chapter_id` 解析到 `01c`、B5 `consistency_rules` 三条硬性规则覆盖。
+  - **B7 诚实标注**：「03c 表数＝招标商务格式章要求表数」因 ② 不读招标原文而**不可独立机检**，标注以 ① 抽取声明为准，不作无源断言。
+  - **职责边界**：不重复 `check_compliance.py` 已实现的 D 类「表格↔任务卡一一对应」。
+- **`tender-document-review` D5 分值闭合验算脚本化**：`emit_facts.py` 新增 `--expected-total <明示总分>`，自动求 `scoring.items[].points` 之和并与明示总分比对；未录入或不等**均告警**（不静默通过）。
+  此前该规则仅写在 ⓪ `SKILL.md` 第 234 行「分值闭合验算（必做）」，脚本无对应实现——属规则与实现的**契约漂移**，本次补齐。明示总分须人工从原文录入后传入，AI 不得自动解析招标文件后直接采用（同 `deadline` 口径）。
+
+### Changed
+
+- `06_compliance/business-check.*` 落点移交 `check_business.py` 唯一写入；`check_compliance.py` 不再重复写同一文件（避免两脚本互相覆盖）。其 D 类「商务表↔任务卡一一对应」结论仍完整保留在 `compliance-report.md/json` 的 `business_forms` 字段，信息不丢。
+- 版本与锁：`tender-document-review` 1.4.0→**1.4.1**、`bid-compliance-check` 0.2.1→**0.2.2**，`skills-lock.json` 经 `validate_contract.py --write-lock` 刷新。
+
+### Tests
+
+- **M8 金额拦截**：4 类注入（数字 `1234567.89元`／货币符号 `¥1000000`／中文大写 `壹拾贰万元整`／千分位 `1,234,567元`）**全部阻断**（rc=1）；3 类负例（合法字段名「投标总报价（大写）」、含大写数字但非金额「贰级资质」、seal 条款号「按前附表3.4.1」）**全部放行、无误报**。
+- **D5 闭合三情形**：不录明示总分→告警「合计 30 未经闭合验算，不得静默采用」；录 30（＝合计）→闭合无告警；录 100→报「合计 30 ≠ 100（差异 -70），须回原文复核」。rc 均为 0（警告非硬阻断，符合 ⓪ SKILL.md 口径）。
+- **落点与回归**：删掉 `business-check.md` 后跑 `check_compliance.py` 确认未被重建（移交生效），再由 `check_business.py` 写入；`check_compliance.py` 覆盖计数与改造前一致（废标 11／资格 7／商务表 24/24／孤儿 0／F 类 expired），**无回归**；M 层 `validate_contract`（C1–C11+C5b）PASS。
+
+### Notes
+
+- **中文大写金额正则首版误加 `$` 锚点**，导致「壹拾贰万元整」漏检（首轮测试 rc=0、未阻断），而中文大写恰是最典型的投标报价写法。已修正为「大写数字起 + 进位/数字 + 可选万/亿 + **必有元/圆** + 可选整」，并要求必有「元/圆」以避免「贰级资质」类误报。此为**测试实际抓出的缺陷**，非事后补述；修正后 4 类形态全拦下、3 类负例全放行。
+- 「表数＝招标格式章要求表数」（§11.2 #9 前半）在当前架构下**无法独立机检**：① 的 `BUSINESS_FORMS` 为硬编码常量（bf-01~bf-24，取自深州项目第七章），② 不读招标原文、03c schema 亦无期望表数字段。已如实标注为「以 ① 抽取声明为准」，未伪造通过。
+
 ## [delivery-audit/v1.1.3] - 2026-10-18
 
 > 修正 `README.md` 与 `SKILL.md`（v1.1.2）两处自相矛盾（专家审核发现）；技能能力不变。

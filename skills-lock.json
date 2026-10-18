@@ -1,15 +1,15 @@
 {
   "kit_version": "kit/v0.2.0-stage1",
-  "generated_at": "2026-10-18T11:33:35+08:00",
+  "generated_at": "2026-10-18T12:00:21+08:00",
   "skills": {
     "tender-document-review": {
-      "version": "1.4.0"
+      "version": "1.4.1"
     },
     "bid-response-plan": {
       "version": "0.2.0"
     },
     "bid-compliance-check": {
-      "version": "0.2.1"
+      "version": "0.2.2"
     },
     "bid-technical-proposal": {
       "version": "0.1.1"

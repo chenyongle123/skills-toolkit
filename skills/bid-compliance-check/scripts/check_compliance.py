@@ -552,12 +552,9 @@ def main():
         f.write(f"- 签章(seal)：{'✅ ' + (form_fields['seal'] or '') if form_fields['seal'] else '❌ 缺失→回①补抽'}\n")
         f.write(f"- 页数上限(page_limit)：{'✅ ' + str(form_fields['page_limit']) if page_limit_stated else '⚠️ 01c 未载明，须回①确认或按招标隐含估算并写明依据'}\n")
         f.write("- bid_mode=normal（非暗标）；页数预算可行性待④装配时核。\n")
-    with open(os.path.join(out_dir, "business-check.md"), "w", encoding="utf-8") as f:
-        f.write("# 商务表齐全性（D 类）\n\n")
-        f.write(f"- 招标要求表格：{len(form_ids)} 张（bf-01..bf-{form_ids[-1][-2:] if form_ids else '??'}）\n")
-        f.write(f"- 任务卡已覆盖：{len(form_ids) - len(forms_missing)} 张\n")
-        f.write(f"- 缺失：{', '.join(forms_missing) if forms_missing else '无'}\n")
-        f.write("- 一致性规则（只查不算价）：大写=小写；各报价表分项合计=汇总表投标总价；保证金金额与前附表3.4.1一致。\n")
+    # business-check.md 落点已移交 check_business.py（M8 唯一归属，计划书 §5 目录树 / §11.2 验收 #9）。
+    # D 类「商务表↔任务卡一一对应」结论仍保留在本脚本的 compliance-report.md 与
+    # compliance-report.json（business_forms 字段），此处不再重复写同一落点文件，避免两个脚本互相覆盖。
     with open(os.path.join(out_dir, "deviation-table.md"), "w", encoding="utf-8") as f:
         f.write("# 偏离表齐全性（B 类）\n\n")
         bf05 = any(it.get("source_ref") == "bf-05" for it in bus_cards)
