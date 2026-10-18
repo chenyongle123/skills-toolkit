@@ -38,7 +38,7 @@ from pathlib import Path
 SCHEMA_VERSION = "0.4"
 CONTRACT_SCHEMA_VERSION = "0.4"
 DEFAULT_RULE_SEQ = 10
-FALLBACK_SKILL_VERSION = "1.4.0"
+FALLBACK_SKILL_VERSION = "1.4.1"
 
 ROOT_REQUIRED = [
     "schema_version", "contract_schema_version", "source_skill_version", "source_rule_seq",
@@ -134,7 +134,7 @@ def _builtin_schema():
 
 # ---- 序列化后自检（SKILL.md 10.3） ----
 
-def self_checks(doc, expected_clauses=None, expected_scoring=None):
+def self_checks(doc, expected_clauses=None, expected_scoring=None, expected_total=None):
     """返回 (硬错误, 警告) 两个字符串列表。只报告差异，不自动补齐。"""
     hard, warn = [], []
 
@@ -148,6 +148,32 @@ def self_checks(doc, expected_clauses=None, expected_scoring=None):
         if actual != expected_scoring:
             hard.append("评分点不守恒：scoring.items=%d，上游矩阵行数=%d（差异 %+d）"
                         % (actual, expected_scoring, actual - expected_scoring))
+
+    # ---- D5 评分表分值闭合验算（v0.16 §11.2 阶段 1 验收第 0 条；⓪ SKILL.md「分值闭合验算」） ----
+    # 口径：各评分项分值之和须等于文件明示总分（或各权重段分值）。
+    # 不等即回原文复核并记录差异；存在「各权重段分值」多口径，故报警告而非硬阻断，
+    # 但绝不静默通过——未录入明示总分时同样告警，避免"看起来验过了"。
+    items = doc.get("scoring", {}).get("items", [])
+    total = 0.0
+    non_numeric = []
+    for i, it in enumerate(items):
+        p = it.get("points")
+        if isinstance(p, (int, float)) and not isinstance(p, bool):
+            total += float(p)
+        else:
+            non_numeric.append(i)
+    if non_numeric:
+        warn.append("分值闭合：scoring.items%s 的 points 非数值或缺失，未计入合计" % (non_numeric,))
+    if expected_total is None:
+        if items:
+            warn.append("分值闭合：未录入「文件明示总分」（--expected-total），当前分值合计 %.6g "
+                        "未经闭合验算。按 ⓪ SKILL.md 分值闭合验算要求，须人工从原文录入明示总分后重跑，"
+                        "不得静默采用。" % total)
+    elif abs(total - expected_total) > 1e-9:
+        warn.append("分值闭合差异：评分项分值合计 %.6g ≠ 文件明示总分 %.6g（差异 %+.6g）。"
+                    "须回原文复核并记录差异（常见成因：PDF 版面换行折断数值，如「50」读作「5/0」；"
+                    "合并单元格漏行；同一评分因素并列两套基准）。若属「各权重段分值」口径不同，"
+                    "请改用权重段合计复核并在备注写明依据。" % (total, expected_total, total - expected_total))
 
     seen = {}
     for i, c in enumerate(doc.get("clauses", [])):
@@ -203,6 +229,9 @@ def main(argv=None):
                     help="Markdown 七类表行数（条目数守恒判据）")
     ap.add_argument("--expected-scoring", type=int, default=None,
                     help="上游评分矩阵行数（评分点守恒判据）")
+    ap.add_argument("--expected-total", type=float, default=None,
+                    help="文件明示总分（分值闭合验算判据，D5 / 计划书 §11.2 阶段 1 验收第 0 条）。"
+                         "须人工从原文录入后传入，AI 不得自动解析招标文件后直接采用")
     ap.add_argument("--rule-seq", type=int, default=DEFAULT_RULE_SEQ,
                     help="判词库「规则变更记录」历史序号（默认 %d，仅追溯快照）" % DEFAULT_RULE_SEQ)
     args = ap.parse_args(argv)
@@ -225,7 +254,8 @@ def main(argv=None):
         print("按铁律：只报告差异，不自动补猜。请修正输入后重跑。", file=sys.stderr)
         return 1
 
-    hard, warn = self_checks(doc, args.expected_clauses, args.expected_scoring)
+    hard, warn = self_checks(doc, args.expected_clauses, args.expected_scoring,
+                             args.expected_total)
     for w in warn:
         print("警告：%s" % w, file=sys.stderr)
     if hard:
