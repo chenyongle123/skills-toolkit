@@ -52,6 +52,38 @@ def load(p):
         return json.load(f)
 
 
+# 第五章「发包人要求」节号→节名（招标文件结构，非逐批计数；新增节才需补表）
+CH5_SECTION_NAMES = {
+    1: "总则", 2: "性能指标", 3: "勘察设计", 4: "施工安装",
+    5: "风电场调试、试运行和验收", 6: "施工工期", 7: "施工质量",
+    8: "竣工试验与验收", 9: "工程管理",
+}
+
+
+def summarize_01b(spec_items_path):
+    """从 01b_spec-items.json **动态派生**第五章覆盖口径（根治硬编码计数漂移：
+    ① 每全量一批，历史口令行必漂移一次）。返回 (总条数, 口径摘要字符串)。
+    口径：clause 以「第五章<节号>」开头即计入该节；有条目=已全量，无=挂起。"""
+    try:
+        data = load(spec_items_path)
+    except Exception:
+        return None, None
+    items = data.get("items", [])
+    per_section = Counter()
+    for it in items:
+        m = re.match(r"第五章(\d+)", str(it.get("clause", "")))
+        if m:
+            per_section[int(m.group(1))] += 1
+    done = sorted(s for s in per_section if per_section[s] > 0)
+    todo = sorted(s for s in CH5_SECTION_NAMES if s not in per_section)
+    n_ch5 = sum(per_section.values())
+    done_s = "＋".join(f"{CH5_SECTION_NAMES[s]} {per_section[s]} 行" for s in done)
+    todo_s = "/".join(f"{s}.{CH5_SECTION_NAMES[s]}" for s in todo) or "无"
+    summary = (f"第五章已全量 {len(done)} 节（{done_s}；共 {n_ch5} 行），"
+               f"挂起 {todo_s}——不得冒充第五章全覆盖")
+    return len(items), summary
+
+
 def load_text(p):
     try:
         return open(p, encoding="utf-8").read()
@@ -564,8 +596,8 @@ def main():
         spec_items = os.path.join(bid, "01b_spec-items.json")
         if os.path.exists(spec_items):
             try:
-                n = len(load(spec_items).get("items", []))
-                f.write(f"- 偏离表行 vs 01b 技术规范条目：01b 现有 {n} 条（第五章已全量 4 节：2.性能指标 14 行＋3.勘察设计 69 行＋5.调试验收 5 行＋6.施工工期 16 行；挂起 4/7/8/9 节），逐行一致性以 01b 全量后重跑为准。\n")
+                n01b, cov = summarize_01b(spec_items)
+                f.write(f"- 偏离表行 vs 01b 技术规范条目：01b 现有 {n01b} 条（{cov}），逐行一致性以 01b 全量后重跑为准。\n")
             except Exception:
                 f.write("- 01b 读取异常，偏离表逐行一致性待补。\n")
         else:
