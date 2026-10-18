@@ -81,7 +81,9 @@ def parse_deadline(s):
 
 
 def cover_clauses(clauses, items, expect_type):
-    """对一组事实条款，找 response_type==expect_type 的任务卡，给处置态。"""
+    """对一组事实条款，找 response_type==expect_type 的任务卡，给处置态。
+    处置三态（计划书 D5 统一）：已响应 / 响应不足 / 未响应；
+    '响应不足' 的细分原因（待澄清/缺事实库/其他）置于 reason 字段，不混入 disposition。"""
     cards_by_ref = defaultdict(list)
     for it in items:
         cards_by_ref[it.get("source_ref")].append(it)
@@ -92,44 +94,156 @@ def cover_clauses(clauses, items, expect_type):
         if matched:
             statuses = [m.get("status") for m in matched]
             if all(s == "ready" for s in statuses):
-                disp = "已响应(就绪)"
+                disp, reason = "已响应", None
             elif any(s == "blocked_by_clarify" for s in statuses):
-                disp = "响应不足(待澄清)"
+                disp, reason = "响应不足", "待澄清"
             elif any(s == "blocked_by_facts" for s in statuses):
-                disp = "响应不足(缺事实库)"
+                disp, reason = "响应不足", "缺事实库"
             else:
-                disp = "响应不足(其他)"
+                disp, reason = "响应不足", "其他"
             needs_orig = any(("原件" in (m.get("notes") or "")) and
                              ("无需" not in (m.get("notes") or "")) and
                              ("不必" not in (m.get("notes") or ""))
                              for m in matched)
             rows.append({
                 "clause_id": c.get("id"), "item": c.get("item"), "status": "covered",
-                "disposition": disp, "cards": [m.get("id") for m in matched],
+                "disposition": disp, "reason": reason, "cards": [m.get("id") for m in matched],
                 "needs_original": needs_orig, "consequence": c.get("consequence", ""),
             })
         else:
             rows.append({
-                "clause_id": c.get("id"), "item": c.get("item"), "status": "未响应",
-                "disposition": "未响应", "cards": [], "needs_original": False,
+                "clause_id": c.get("id"), "item": c.get("item"), "status": "no_card",
+                "disposition": "未响应", "reason": None, "cards": [], "needs_original": False,
                 "consequence": c.get("consequence", ""),
             })
     return rows
 
 
-def qual_timing(facts_text, deadline_date):
+def _yaml_scalar(v):
+    """极简 YAML 标量规整：去引号、识别 bool/null，其余按字符串。"""
+    v = v.strip()
+    if v == "":
+        return None
+    if (v.startswith('"') and v.endswith('"')) or (v.startswith("'") and v.endswith("'")):
+        return v[1:-1]
+    low = v.lower()
+    if low == "true":
+        return True
+    if low == "false":
+        return False
+    if low in ("none", "null"):
+        return None
+    return v
+
+
+def _mini_yaml_load(text):
+    """零依赖 YAML 子集解析，仅覆盖本套件 02_facts.yaml 结构：
+    顶层 `section:` 后跟 `- key: value` 列表（value 统一按字符串/标量处理）。
+    完整解析交由 PyYAML（若可用）；本函数为其不可用时的兜底，确保 F 类不静默失效。"""
+    data = {}
+    cur_section = None
+    cur_item = None
+    for raw in text.splitlines():
+        stripped = raw.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        indent = len(raw) - len(raw.lstrip(" "))
+        if indent == 0 and not stripped.startswith("- "):
+            key, _, val = stripped.partition(":")
+            key = key.strip()
+            if val.strip() == "":
+                cur_section = key
+                cur_item = None
+                data.setdefault(key, [])
+            else:
+                data[key] = _yaml_scalar(val)
+            continue
+        if stripped.startswith("- "):
+            cur_item = {}
+            data.setdefault(cur_section, []).append(cur_item)
+            rest = stripped[2:].strip()
+            if ":" in rest:
+                k, _, v = rest.partition(":")
+                cur_item[k.strip()] = _yaml_scalar(v)
+            continue
+        if ":" in stripped and cur_item is not None:
+            k, _, v = stripped.partition(":")
+            cur_item[k.strip()] = _yaml_scalar(v)
+    return data
+
+
+def _load_structured_facts(bid):
+    """加载结构化事实库：优先 02_facts.yaml（yaml，PyYAML 可用时完整解析；
+    不可用时零依赖极简解析兜底），回退 02_facts.json；无则 None。
+    依据 facts.schema.yaml：qualifications/personnel 条目含 valid_to，供 F 类时效判定。"""
+    yaml_path = os.path.join(bid, "02_facts.yaml")
+    json_path = os.path.join(bid, "02_facts.json")
+    if os.path.exists(yaml_path):
+        try:
+            import yaml  # PyYAML；可用时优先（完整保真）
+            with open(yaml_path, encoding="utf-8") as f:
+                return yaml.safe_load(f)
+        except Exception:
+            pass
+        # PyYAML 不可用 → 零依赖极简解析，避免 F 类静默降级为 fact_missing
+        try:
+            with open(yaml_path, encoding="utf-8") as f:
+                return _mini_yaml_load(f.read())
+        except Exception:
+            return None
+    if os.path.exists(json_path):
+        try:
+            with open(json_path, encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            return None
+    return None
+
+
+def qual_timing(structured_facts, facts_text, deadline_date):
     """F 类资质时效三态：fact_missing / expired / expiring_soon / stated。
+    优先解析结构化 02_facts.yaml/.json（qual-/pers- 含 valid_to）；
+    缺失时退化为扫描 02_facts.md 正则（旧行为，仅作兜底）。
     时间基准取 00_metadata.deadline，不以系统日期推算。"""
-    certs = CERT_VALID_RE.findall(facts_text)
-    if not certs:
+    # 优先：结构化事实库（qualifications / personnel 含 valid_to）
+    if structured_facts:
+        certs = []
+        for sec in ("qualifications", "personnel"):
+            for e in (structured_facts.get(sec) or []):
+                vt = e.get("valid_to")
+                if vt:
+                    certs.append((e.get("id"), vt))
+        if certs:
+            if deadline_date is None:
+                return "fact_missing", "metadata.deadline 缺失或不可解析，无法作为时效基准；须人工录入截止日后重跑"
+            worst = "stated"
+            details = []
+            for cid, vt in certs:
+                v = vt if isinstance(vt, _dt.date) else norm_date(str(vt))
+                if v is None:
+                    details.append(f"{cid} valid_to={vt} 不可解析")
+                    continue
+                if v < deadline_date:
+                    worst = "expired"
+                    details.append(f"{cid} valid_to={vt} 早于截止日({deadline_date})→废标风险")
+                elif v <= deadline_date + _dt.timedelta(days=180):
+                    if worst != "expired":
+                        worst = "expiring_soon"
+                    details.append(f"{cid} valid_to={vt} 落入换证窗口(截止前180天内)")
+                else:
+                    details.append(f"{cid} valid_to={vt} 有效")
+            return worst, "；".join(details) if details else "未解析到有效日期"
+    # 退化：扫描 md 正则（兜底）
+    certs_md = CERT_VALID_RE.findall(facts_text)
+    if not certs_md:
         if FACT_ID_RE.search(facts_text):
             return "fact_missing", "事实库含事实ID但缺结构化证书有效期字段，时效不可判；须回①补录后重跑"
-        return "fact_missing", "事实库(02_facts.md)未含结构化事实条目（无 qual/pers/fin/perf ID 与有效期），时效不可判；属资料缺口，须回①补录"
+        return "fact_missing", "事实库(02_facts.yaml/.json)未含结构化事实条目（无 qual/pers 有效期），时效不可判；属资料缺口，须回①补录"
     if deadline_date is None:
         return "fact_missing", "metadata.deadline 缺失或不可解析，无法作为时效基准；须人工录入截止日后重跑"
     worst = "stated"
     details = []
-    for cv in certs:
+    for cv in certs_md:
         v = norm_date(cv)
         if v is None:
             continue
@@ -171,6 +285,7 @@ def main():
     fmt = load(p01c)
     facts_text = load_text(p02)
     meta = load_text(pmeta)
+    structured_facts = _load_structured_facts(bid)
     try:
         meta_json = json.loads(meta) if meta else {}
     except json.JSONDecodeError:
@@ -253,7 +368,7 @@ def main():
     # ---------- F 类：资质时效（三态，时间基准取 metadata.deadline） ----------
     qual_cards = [it for it in items if it.get("source_type") == "qualification"]
     required_facts = sorted({rf for it in qual_cards for rf in it.get("required_facts", [])})
-    f_status, f_detail = qual_timing(facts_text, deadline_date)
+    f_status, f_detail = qual_timing(structured_facts, facts_text, deadline_date)
 
     # ---------- 汇总计数 ----------
     def count(rows):
@@ -261,15 +376,15 @@ def main():
 
     waste_cnt = count(waste_rows)
     qual_cnt = count(qual_rows)
-    unmapped_waste = [r["clause_id"] for r in waste_rows if r["status"] == "未响应"]
-    unmapped_qual = [r["clause_id"] for r in qual_rows if r["status"] == "未响应"]
+    unmapped_waste = [r["clause_id"] for r in waste_rows if r["status"] == "no_card"]
+    unmapped_qual = [r["clause_id"] for r in qual_rows if r["status"] == "no_card"]
     needs_orig = [r["clause_id"] for r in waste_rows + qual_rows if r["needs_original"]]
     # business 卡需原件核对（t-0020 保函原件等）
     needs_orig_bus = [it["source_ref"] for it in bus_cards
                       if ("原件" in (it.get("notes") or "")) and
                       ("无需" not in (it.get("notes") or ""))]
     insufficient = [r["clause_id"] for r in waste_rows + qual_rows
-                    if r["status"] == "covered" and r["disposition"] != "已响应(就绪)"]
+                    if r["status"] == "covered" and r["disposition"] == "响应不足"]
 
     summary = {
         "entry_stage": entry_stage, "entry_ok": entry_ok,
@@ -364,14 +479,16 @@ def main():
     md.append("| 条款 | 事项 | 状态 | 处置 | 任务卡 | 需原件 | 后果 |")
     md.append("|---|---|---|---|---|---|---|")
     for r in waste_rows:
-        md.append(f"| {r['clause_id']} | {r['item']} | {r['status']} | {r['disposition']} |"
+        disp = r['disposition'] + (f"（{r['reason']}）" if r.get('reason') else "")
+        md.append(f"| {r['clause_id']} | {r['item']} | {r['status']} | {disp} |"
                   f" {','.join(r['cards']) or '—'} | {'是' if r['needs_original'] else '—'} | {r['consequence']} |")
 
     md.append("\n## 三、资格项覆盖（A 类，category=②）\n")
     md.append("| 条款 | 事项 | 状态 | 处置 | 任务卡 |")
     md.append("|---|---|---|---|---|")
     for r in qual_rows:
-        md.append(f"| {r['clause_id']} | {r['item']} | {r['status']} | {r['disposition']} |"
+        disp = r['disposition'] + (f"（{r['reason']}）" if r.get('reason') else "")
+        md.append(f"| {r['clause_id']} | {r['item']} | {r['status']} | {disp} |"
                   f" {','.join(r['cards']) or '—'} |")
 
     md.append("\n## 四、评分点覆盖（A 类）\n")
@@ -418,7 +535,8 @@ def main():
     md.append("\n## 十、澄清边界提示（blocked_by_clarify 项）\n")
     md.append("- 纯笔误/客观无歧义可澄清；**履约条件本身有浮动空间、改了影响权利义务的不可澄清**（如期限'30日'vs'一个月'）。")
     md.append("- **禁止'先随便填、等澄清再改'**：blocked_by_clarify 项须于投标截止前取得书面澄清并固化，不得以'等澄清'为由留空。")
-    clarify_items = [r["clause_id"] for r in waste_rows + qual_rows if r["disposition"] == "响应不足(待澄清)"]
+    clarify_items = [r["clause_id"] for r in waste_rows + qual_rows
+                     if r["disposition"] == "响应不足" and r.get("reason") == "待澄清"]
     md.append(f"- 本次待澄清条款：{', '.join(clarify_items) if clarify_items else '无'}")
 
     md.append("\n---\n【交付审查】②-A 仅做覆盖闭合检查，不改写任何内容，不判定是否废标；"

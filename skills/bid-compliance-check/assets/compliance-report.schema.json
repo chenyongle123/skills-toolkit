@@ -60,7 +60,8 @@
           "clause_id": {"type": "string"},
           "item": {"type": "string"},
           "status": {"type": "string", "enum": ["covered", "no_card"]},
-          "disposition": {"type": "string", "enum": ["已响应(就绪)", "响应不足(待澄清)", "响应不足(缺事实库)", "响应不足(其他)", "未响应"]},
+          "disposition": {"type": "string", "enum": ["已响应", "响应不足", "未响应"]},
+          "reason": {"type": ["string", "null"]},
           "cards": {"type": "array", "items": {"type": "string"}},
           "needs_original": {"type": "boolean"},
           "consequence": {"type": "string"}
@@ -76,7 +77,8 @@
           "clause_id": {"type": "string"},
           "item": {"type": "string"},
           "status": {"type": "string", "enum": ["covered", "no_card"]},
-          "disposition": {"type": "string", "enum": ["已响应(就绪)", "响应不足(待澄清)", "响应不足(缺事实库)", "响应不足(其他)", "未响应"]},
+          "disposition": {"type": "string", "enum": ["已响应", "响应不足", "未响应"]},
+          "reason": {"type": ["string", "null"]},
           "cards": {"type": "array", "items": {"type": "string"}},
           "needs_original": {"type": "boolean"},
           "consequence": {"type": "string"}
