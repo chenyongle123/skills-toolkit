@@ -4,6 +4,35 @@
 
 Tag 约定：技能版本 tag 为 `技能名/vX.Y.Z`；仓库级变更 tag 为 `repo/vX.Y.Z`。
 
+## [delivery-audit/v1.1.3] - 2026-10-18
+
+> 修正 `README.md` 与 `SKILL.md`（v1.1.2）两处自相矛盾（专家审核发现）；技能能力不变。
+
+### Fixed
+
+- `README.md` 核心机制表：铁律由「五条（L1–L5）：记忆非证据／引用须落盘／数字须复算／时效须当日／校验优先」改为**六条（L1–L6）：记忆非证据／存在≠准确／完成即怀疑／同源隔离／校验优先／能机判不人判**，与 SKILL.md 第 100 行逐字对齐。
+- `README.md` 核心机制表：输出态由「三态：✅／⚠️ SELF-ONLY／❌」改为**四态：✅ VERIFIED／⚠️ SELF-ONLY／⚠️ UNVERIFIED／❌ REFUTED**，补关键降级态 UNVERIFIED，与 SKILL.md 第 268 行「输出契约（四态）」一致。
+
+## [bid-compliance-check/v0.2.1] - 2026-10-18
+
+> 修 X 层盲审（换模型交叉验证）发现的 3 处硬伤（H1/H2/H1-spec）；能力范围不变，向后兼容。
+
+### Fixed
+
+- **H1 · F 类资质时效改读结构化事实库**：`check_compliance.py` 原仅扫描 `02_facts.md` 正则，而 `facts.schema.yaml` 规定 ②③ 解析 `02_facts.yaml`（qual-/pers- 含 `valid_to`），导致 P0 最高频废标点（R14 证书有效期早于截止日）在本管线恒 `fact_missing`、过期判定从未真跑。现 `_load_structured_facts` 优先读 `02_facts.yaml`（PyYAML 可用时完整解析，**不可用时零依赖极简解析兜底**，避免静默降级），缺失再退化扫描 `02_facts.md`；`qual_timing` 据 `valid_to` 与 `00_metadata.deadline` 真实比对，输出 `expired`/`expiring_soon`/`stated`/`fact_missing`。
+- **H2 · 未响应条款 `status` 不通过产出 schema**：原对未匹配条款写 `status="未响应"`，但 `compliance-report.schema.json` 的 `waste[].status` enum 仅 `["covered","no_card"]`，恰在「漏响应废标项」路径产出非法 JSON。现未匹配条款 `status="no_card"`（disposition 仍为 `未响应`，属新枚举三态之一），产出 JSON 经 jsonschema 校验 0 错误。
+- **H1-spec · disposition 五态统一为计划书 D5 三态**：原实装五态（含「已响应(就绪)/响应不足(待澄清)/响应不足(缺事实库)/响应不足(其他)」），与计划书套件级 D5（第 243 行）「统一为已响应/响应不足/未响应 + needs_original」冲突。现 `disposition ∈ {已响应, 响应不足, 未响应}`，「响应不足」细分原因（待澄清/缺事实库/其他）移至新增 `reason` 字段，schema 同步收敛枚举并加 `reason`。
+
+### Changed
+
+- `skills-lock.json`：`bid-compliance-check` 版本刷新为 0.2.1，`compliance-report.schema.json` hash 随枚举改动更新（`validate_contract.py --write-lock` 重写）。
+- `bid-compliance-check/SKILL.md`：版本 0.2.0→0.2.1；F 类能力说明改为「优先解析结构化 02_facts.yaml/.json」；运行说明注明 F 类优先读 yaml。
+
+### Notes
+
+- 验证：深州 100MW 风电样本副本注入结构化 `02_facts.yaml`（含过期＋换证窗口＋有效三类），重跑 `check_compliance.py` → `f_status=expired`，明细逐条正确；覆盖计数（废标11/资格7/商务24/孤儿0）与改造前一致，无回归。
+- 章节树通用化（专家遗留建议 #2）、`g3_disposition` 自由串收紧（X 审 M5）属后续阶段/中等问题，本轮未动。
+
 ## [repo/v1.3.0] - 2026-10-18
 
 ### Added

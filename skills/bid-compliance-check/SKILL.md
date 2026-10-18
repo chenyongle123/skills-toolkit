@@ -1,12 +1,12 @@
 ---
 name: bid-compliance-check
-version: 0.2.0
+version: 0.2.1
 description: 投标响应合规自检（两段式）。②-A 查任务卡与目录骨架是否覆盖全部废标项、资格项、评分点与商务表格；②-B 查成稿正文是否真的逐条响应、偏离表是否齐全、跨章数字与名称是否一致、形式要求与页数是否满足、资质证书是否过期、是否存在雷同信号。当用户说"检查废标项""做响应偏离表""形式核对""看看有没有漏响应""资质过期检查""成稿终检""雷同自查"时使用。本技能只报事实态（已响应/响应不足/未响应），不改写内容，不判定是否废标。
 ---
 
 # 投标合规自检（套件第 ② 环）
 
-> **技能版本：v0.2.0（阶段 1 落地，2026-10-18；0.1.1 改 description 去「投标文件」裸词，0.2.0 落地 ②-A 覆盖检查 + `scripts/check_compliance.py` + `assets/compliance-report.schema.json`）**
+> **技能版本：v0.2.1（阶段 1 落地，2026-10-18；0.1.1 改 description 去「投标文件」裸词，0.2.0 落地 ②-A 覆盖检查，0.2.1 修三处 X 审硬伤：F 类改读结构化 02_facts.yaml、未响应 status→no_card、disposition 三态统一）**
 > 本版能力范围见 §七。**②-A 已实装**：读 ⓪/① 产物做废标项/资格项/评分点/商务表的覆盖闭合检查，输出 `06_compliance/`；②-B（成稿后响应检查）仍属阶段 2，未实装。
 > 受套件总则（8 条铁律）约束；流水线状态机见 `references/流水线交接约定.md`。
 
@@ -102,11 +102,11 @@ description: 投标响应合规自检（两段式）。②-A 查任务卡与目�
 | ②-A · A 废标/资格覆盖 | ✅ v0.2.0（category②/③ 全覆盖 + 跨类否决级补充扫描 + 孤儿卡检测） |
 | ②-A · G 评分违规识别 | ✅ v0.2.0（静态关键词，只标注不定性，不判违法） |
 | ②-A · D 商务表齐全性 | ✅ v0.2.0（bf 框架 24/24 覆盖，只查一致性不算价） |
-| ②-A · F 资质时效 | ✅ v0.2.0（三态 expired/expiring_soon/stated/fact_missing，时间基准取 `00_metadata.deadline`） |
+| ②-A · F 资质时效 | ✅ v0.2.1（优先解析结构化 `02_facts.yaml/.json` 的 `valid_to`，退化扫描 `02_facts.md`；三态 expired/expiring_soon/stated/fact_missing，时间基准取 `00_metadata.deadline`） |
 | ②-A · C 形式字段齐备 | ⚠️ 部分（binding/seal 齐备性 ✅；bid_mode 传递/页数预算以信息态报出；页数上限未载明须回①确认或估算并写明依据） |
 | ②-A · B 响应偏离表 | ⚠️ 部分（bf-05/bf-19 偏离函框架在/缺判定 ✅；逐行 vs `01b` 一致性待 01b 齐备后重跑） |
 | ②-B 响应检查（成稿后逐条响应、三态判定、跨章一致性、雷同自查） | ⏳ **阶段 2 交付**（脚本 `--mode B` 仅占位） |
 
-> ②-A 运行：`python scripts/check_compliance.py --bid <项目/bid目录>`（**要求 Python ≥ 3.12**），读取 `01/03/03c/01c/02_facts.md/00_metadata.json`，
+> ②-A 运行：`python scripts/check_compliance.py --bid <项目/bid目录>`（**要求 Python ≥ 3.12**），读取 `01/03/03c/01c/00_metadata.json`，**F 类优先读结构化 `02_facts.yaml`（无则 `02_facts.json`，再退化扫描 `02_facts.md`）**，
 > 输出 `06_compliance/{compliance-report,form-check,business-check,deviation-table}.md` + `compliance-report.json`。
 > **只报事实态，不改写内容，不判废标**；G3 须人工逐条确认响应不足/未响应/需原件核对项后方可写 `check_confirmed`。
