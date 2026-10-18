@@ -4,6 +4,24 @@
 
 Tag 约定：技能版本 tag 为 `技能名/vX.Y.Z`；仓库级变更 tag 为 `repo/vX.Y.Z`。
 
+## [repo/v1.7.2] - 2026-10-18
+
+> 独立审计（综合审核结论）第一/二档快速修复：F 类文案方向、脚本自述漂移、README 版本表、NOTICE、计划书 §5.2 矛盾、④ README 四要求、prompts 结构占位。纯文本/新建，零逻辑改动。
+
+### Fixed
+
+- `bid-compliance-check/scripts/check_compliance.py`：F 类文案「截止前180天内」→「截止后180天内」（L264/L288），与时效分支逻辑（deadline≤v≤deadline+180）对齐；逻辑不动。
+- `bid-response-plan/scripts/parse_spec_items.py`：覆盖状态自述「8 节」→「5 节」、「挂起 3 节」→「挂起 4 节」三处漂移修正。
+- `README.md`：技能一览版本表对齐 lock（tender 1.5.0 / delivery 1.1.3 / bid-response 0.6.0 / bid-compliance 0.3.2）。
+- `NOTICE`：新增顶层版权/许可声明（计划 §5 L638）。
+- `docs/投标文件Skill建设计划_v0.16.md`：§5.2 L788 `compliance-report.schema.json` 进 lock 标记「否」→「是」（计划表格陈旧）。
+- `bid-docx-export/README.md`：§8.8.3 操作须知补齐 4 条要求表（时间戳不覆盖/先看页数与目录/人工改过不重跑/修订批注已删）。
+- `prompts/templates/README.md`：建立计划要求的 10 模板索引占位（完整内容随阶段 2/3）。
+
+### Notes
+
+- 第三档（② 三脚本新开发、01c↔04 基准、01_tender-facts 重跑、01b 余 4 节、漂移 63 处+§11.2 重跑）另行排期，未含本批。
+
 ## [repo/v1.7.1] - 2026-10-18
 
 > 独立审计（换模型交叉验证）整改：B 级（契约矩阵范围声明 + 有意排除注释固化）。A 级（安装副本与仓库源漂移）已同步安装目录，不落仓库。
