@@ -4,6 +4,10 @@
 
 Tag 约定：技能版本 tag 为 `技能名/vX.Y.Z`；仓库级变更 tag 为 `repo/vX.Y.Z`。
 
+## [repo/v1.7.3] - 2026-10-18
+
+> 计划书 §5 修订：取消 `check_timeliness.py` / `check_similarity.py` / `render_report.py` 三项脚本（本次不实现）。F 类资质时效保留于 `check_compliance.py` 内联（`qual_timing()`）；雷同自查（原 `check_similarity.py`）转为 §8.6 人工核对项；报告渲染保持内联。计划书目录树与 §8.6（防线二 / 平台降级 / 测试场景 / E 类能力行）同步修订；验收记录 L509 将 #8 从待办移除。计划书本身按约定不进版本库（.gitignore）。
+
 ## [repo/v1.7.2] - 2026-10-18
 
 > 独立审计（综合审核结论）第一/二档快速修复：F 类文案方向、脚本自述漂移、README 版本表、NOTICE、计划书 §5.2 矛盾、④ README 四要求、prompts 结构占位。纯文本/新建，零逻辑改动。
