@@ -1,6 +1,6 @@
 {
   "kit_version": "kit/v0.2.0-stage1",
-  "generated_at": "2026-10-18T17:52:00+08:00",
+  "generated_at": "2026-10-18T18:22:02+08:00",
   "skills": {
     "tender-document-review": {
       "version": "1.5.0"
@@ -79,5 +79,22 @@
         "bid-compliance-check"
       ]
     }
+  },
+  "_scope": {
+    "note": "本 lock 仅覆盖「招投标文件技能套件」的版本化契约矩阵，由 tests/validate_contract.py --write-lock 机器再生（只采 skills/schemas 两类；_ 前缀元字段会被该脚本保留，不被抹掉）。",
+    "in_scope": [
+      "tender-document-review",
+      "bid-response-plan",
+      "bid-compliance-check",
+      "bid-technical-proposal",
+      "bid-docx-export"
+    ],
+    "out_of_scope": {
+      "delivery-audit": "通用交付前审查元技能（跨项目共享），不属本套件版本化矩阵",
+      "business-contract-review": "独立商务合同审查领域技能，非投标链路技能"
+    }
+  },
+  "_intentional_excludes": {
+    "knowledge.schema.yaml": "计划书 §5.2 矩阵：仅 ③ bid-technical-proposal 单副本使用，不进 lock（证据见 docs/v0.16_阶段1验收记录.md『计划书 §5.2 表…不进 lock』）"
   }
 }

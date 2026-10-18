@@ -430,9 +430,14 @@ def main() -> int:
         # kit_version 是人工维护的阶段标记（stage0/stage1…），--write-lock 只机器采集
         # 版本与 schema 现值，保留旧值；仅当 lock 不存在时落初始值
         old_kit = "kit/v0.1.0-stage0"
+        old_meta = {}
         if LOCK.exists():
             try:
-                old_kit = json.loads(LOCK.read_text(encoding="utf-8")).get("kit_version", old_kit)
+                old = json.loads(LOCK.read_text(encoding="utf-8"))
+                old_kit = old.get("kit_version", old_kit)
+                # 保留 _ 前缀诊断性元字段（_scope / _intentional_excludes 等），
+                # 机器再生只重采 skills/schemas，不应抹掉这些人工维护的标注
+                old_meta = {k: v for k, v in old.items() if k.startswith("_")}
             except Exception:
                 pass
         lock = {
@@ -441,6 +446,7 @@ def main() -> int:
             "skills": lock["skills"],
             "schemas": lock["schemas"],
         }
+        lock.update(old_meta)
         LOCK.write_text(json.dumps(lock, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         print(f"已写出 {LOCK.relative_to(ROOT)}")
 
