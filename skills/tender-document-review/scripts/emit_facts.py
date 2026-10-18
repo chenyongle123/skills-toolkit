@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""emit_facts.py — tender-document-review 机读产物序列化便利脚本（v1.2.0 新增，v1.3.1 同步）
+"""emit_facts.py — tender-document-review 机读产物序列化便利脚本（v1.2.0 新增，v1.5.0 支持加权闭合口径）
 
 把已成表的七类内容（clauses / scoring / system_clues / clarifications / contacts /
 blind_format / contract_deviations / coverage_map）序列化为 tender-facts.json，
@@ -20,6 +20,7 @@ blind_format / contract_deviations / coverage_map）序列化为 tender-facts.js
     python emit_facts.py input.json -o -                  # 写到 stdout
     python emit_facts.py input.json -o out.json \
         --expected-clauses 42 --expected-scoring 12       # 条目数守恒判据
+    python emit_facts.py input.json -o out.json --expected-total 100   # 明示总分（D5）
 
 input.json 形态：接近最终的 JSON（Markdown 成果的机读稿）。可缺省字段：
 - clauses[].id 缺省时按出现顺序生成 c-0001、c-0002……（**自填** id 才是稳定主键、排序变化不改；依赖缺省 id 时顺序变化 id 即变，下游请以自填 id 做关联）
@@ -27,6 +28,15 @@ input.json 形态：接近最终的 JSON（Markdown 成果的机读稿）。可�
 - source_skill_version 缺省时自动读取 ../SKILL.md frontmatter 的 version
 - source_rule_seq 缺省时取 --rule-seq（默认 10，即判词库「规则变更记录」现行历史序号；
   该序号仅追溯快照，不参与任何校验判定）
+
+D5 分值闭合验算（v1.5.0 起支持两种口径）：
+- **直接相加**：Σscoring.items[].points == 明示总分；
+- **加权闭合**：Σ(points×weight) == 明示总分（各部分满分×权重，工程招标常见）。
+  任一条目带 weight 即按加权口径验算；weight 录整数百分比（10% 录为 10 而非 0.1）
+  会导致加权合计放大，验算差异信息中会点名该成因。
+- 明示总分优先取 --expected-total（人工从原文录入），未传时回退读
+  scoring.total_stated（产物记录值，告警信息中会注明未经人工复核）。
+- 加权口径要求 weight_basis（原文依据摘录）非空，缺则告警——权重不可追溯即不可信。
 """
 
 import argparse
@@ -38,7 +48,7 @@ from pathlib import Path
 SCHEMA_VERSION = "0.4"
 CONTRACT_SCHEMA_VERSION = "0.4"
 DEFAULT_RULE_SEQ = 10
-FALLBACK_SKILL_VERSION = "1.4.1"
+FALLBACK_SKILL_VERSION = "1.5.0"
 
 ROOT_REQUIRED = [
     "schema_version", "contract_schema_version", "source_skill_version", "source_rule_seq",
@@ -150,10 +160,15 @@ def self_checks(doc, expected_clauses=None, expected_scoring=None, expected_tota
                         % (actual, expected_scoring, actual - expected_scoring))
 
     # ---- D5 评分表分值闭合验算（v0.16 §11.2 阶段 1 验收第 0 条；⓪ SKILL.md「分值闭合验算」） ----
-    # 口径：各评分项分值之和须等于文件明示总分（或各权重段分值）。
+    # 两种口径（v1.5.0 起）：
+    #   ① 直接相加：Σpoints == 明示总分；
+    #   ② 加权闭合：Σ(points×weight) == 明示总分（各部分满分×权重，工程招标常见，
+    #      如「商务100×10%＋技术100×40%＋价格100×50%＝总分100」）。
+    # 判定：任一条目带 weight 即按加权口径验算，否则按直接相加口径。
     # 不等即回原文复核并记录差异；存在「各权重段分值」多口径，故报警告而非硬阻断，
     # 但绝不静默通过——未录入明示总分时同样告警，避免"看起来验过了"。
-    items = doc.get("scoring", {}).get("items", [])
+    scoring = doc.get("scoring", {})
+    items = scoring.get("items", [])
     total = 0.0
     non_numeric = []
     for i, it in enumerate(items):
@@ -164,16 +179,52 @@ def self_checks(doc, expected_clauses=None, expected_scoring=None, expected_tota
             non_numeric.append(i)
     if non_numeric:
         warn.append("分值闭合：scoring.items%s 的 points 非数值或缺失，未计入合计" % (non_numeric,))
-    if expected_total is None:
-        if items:
-            warn.append("分值闭合：未录入「文件明示总分」（--expected-total），当前分值合计 %.6g "
-                        "未经闭合验算。按 ⓪ SKILL.md 分值闭合验算要求，须人工从原文录入明示总分后重跑，"
-                        "不得静默采用。" % total)
-    elif abs(total - expected_total) > 1e-9:
-        warn.append("分值闭合差异：评分项分值合计 %.6g ≠ 文件明示总分 %.6g（差异 %+.6g）。"
-                    "须回原文复核并记录差异（常见成因：PDF 版面换行折断数值，如「50」读作「5/0」；"
-                    "合并单元格漏行；同一评分因素并列两套基准）。若属「各权重段分值」口径不同，"
-                    "请改用权重段合计复核并在备注写明依据。" % (total, expected_total, total - expected_total))
+    # 明示总分解析：--expected-total（人工录入，优先）→ scoring.total_stated（产物记录值）
+    expected = expected_total
+    expected_from_doc = False
+    if expected is None:
+        doc_total = scoring.get("total_stated")
+        if isinstance(doc_total, (int, float)) and not isinstance(doc_total, bool):
+            expected = float(doc_total)
+            expected_from_doc = True
+    src_note = ("（取自产物 scoring.total_stated，未经 --expected-total 人工录入复核）"
+                if expected_from_doc else "")
+    weighted = [(i, it) for i, it in enumerate(items)
+                if isinstance(it.get("weight"), (int, float)) and not isinstance(it.get("weight"), bool)]
+    if weighted:
+        if len(weighted) != len(items):
+            warn.append("分值闭合：加权口径要求每条评分项都归入某一权重段，实际 %d 条中仅 %d 条带 weight（下标 %s）；"
+                        "缺 weight 的条目未计入加权合计，闭合结论不可信"
+                        % (len(items), len(weighted), [i for i, _ in weighted]))
+        if not scoring.get("weight_basis"):
+            warn.append("分值闭合：scoring.items 含 weight 但未录 scoring.weight_basis"
+                        "（加权口径的原文依据摘录）。缺依据时权重录入不可追溯，须回原文补摘")
+        wsum = 0.0
+        for i, it in weighted:
+            p = it.get("points")
+            if isinstance(p, (int, float)) and not isinstance(p, bool):
+                wsum += float(p) * float(it["weight"])
+        if expected is None:
+            warn.append("分值闭合（加权口径）：未录入「文件明示总分」（--expected-total 或 scoring.total_stated），"
+                        "当前 Σ(分值×权重)＝%.6g 未经闭合验算。按 ⓪ SKILL.md 分值闭合验算要求，"
+                        "须人工从原文录入明示总分后重跑，不得静默采用。" % wsum)
+        elif abs(wsum - expected) > 1e-9:
+            warn.append("分值闭合差异（加权口径）：Σ(分值×权重)＝%.6g ≠ 文件明示总分 %.6g%s（差异 %+.6g）；"
+                        "直接相加口径合计为 %.6g。须回原文复核并记录差异（常见成因：权重录成整数百分比——10%% 录为 10 "
+                        "而非 0.1；漏抄某一权重段；权重段满分与单条分值混填）。若属「各权重段分值」多口径，"
+                        "请在 scoring.weight_basis 写明依据。" % (wsum, expected, src_note, wsum - expected, total))
+    else:
+        if expected is None:
+            if items:
+                warn.append("分值闭合：未录入「文件明示总分」（--expected-total 或 scoring.total_stated），"
+                            "当前分值合计 %.6g 未经闭合验算。按 ⓪ SKILL.md 分值闭合验算要求，"
+                            "须人工从原文录入明示总分后重跑，不得静默采用。" % total)
+        elif abs(total - expected) > 1e-9:
+            warn.append("分值闭合差异：评分项分值合计 %.6g ≠ 文件明示总分 %.6g%s（差异 %+.6g）。"
+                        "须回原文复核并记录差异（常见成因：PDF 版面换行折断数值，如「50」读作「5/0」；"
+                        "合并单元格漏行；同一评分因素并列两套基准）。若招标文件为「各部分满分×权重」的加权型评分"
+                        "（如商务100×10%%＋技术100×40%%＋价格100×50%%），请为各评分项补录 weight 并按加权口径复核，"
+                        "同时在 scoring.weight_basis 写明原文依据。" % (total, expected, src_note, total - expected))
 
     seen = {}
     for i, c in enumerate(doc.get("clauses", [])):
@@ -231,7 +282,9 @@ def main(argv=None):
                     help="上游评分矩阵行数（评分点守恒判据）")
     ap.add_argument("--expected-total", type=float, default=None,
                     help="文件明示总分（分值闭合验算判据，D5 / 计划书 §11.2 阶段 1 验收第 0 条）。"
-                         "须人工从原文录入后传入，AI 不得自动解析招标文件后直接采用")
+                         "须人工从原文录入后传入，AI 不得自动解析招标文件后直接采用；"
+                         "未传时回退读产物 scoring.total_stated（告警会注明未经人工复核）。"
+                         "加权型评分（各部分满分×权重）会自动按 Σ(points×weight) 口径验算")
     ap.add_argument("--rule-seq", type=int, default=DEFAULT_RULE_SEQ,
                     help="判词库「规则变更记录」历史序号（默认 %d，仅追溯快照）" % DEFAULT_RULE_SEQ)
     args = ap.parse_args(argv)
