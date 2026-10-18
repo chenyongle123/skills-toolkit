@@ -1,12 +1,12 @@
 ---
 name: bid-response-plan
-version: 0.3.0
+version: 0.4.0
 description: 当用户说"帮我写投标文件""帮我编标书""投标文件怎么写""做这个标"时，必须调用本技能（bid-response-plan，投标响应策划入口）。本技能把招标解读产物转成投标任务卡与投标文件目录骨架：按评分点、废标项、资格项、商务表格逐项生成任务卡，按格式章章节树分配篇幅（章名逐字取自格式章，不回读招标原文），输出商务表格框架与素材缺口清单。当用户说"帮我做投标文件""看还缺什么材料""排投标目录""生成投标任务卡""投标响应策划"时也使用本技能。本技能不写正文、不判定合规、不导出文档；未完成招标解读时先转招标解读技能（tender-document-review）。
 ---
 
 # 投标响应策划（套件第 ① 环）
 
-> **技能版本：v0.3.0（阶段 1 保真加固版，2026-10-18；0.1.1 扩契约 `bid-plan` 0.1→0.2 增 `preconditions`；0.1.2 路由修复；0.2.0 实现任务卡/目录骨架/`01b`/`01c`/`03c` 抽取 + 素材缺口清单；**v0.3.0 = 修 01c 章节树两处实测缺陷（技术标编号连续化重排、3 处章节名删括号说明）并新增 `verify_format_chapters.py` 保真机检**）**
+> **技能版本：v0.4.0（阶段 1 收口版，2026-10-18；0.1.1 扩契约 `bid-plan` 0.1→0.2 增 `preconditions`；0.1.2 路由修复；0.2.0 实现任务卡/目录骨架/`01b`/`01c`/`03c` 抽取 + 素材缺口清单；v0.3.0 修 01c 两处实测缺陷并新增 `verify_format_chapters.py` 保真机检；**v0.4.0 = 按计划书 §5 目录树拆分 5 个专职脚本（`build_bid_plan.py` 改为编排器）+ 新增 `validate_plan.py` 全产物契约校验 + `outline.schema.json` 落地（04 字段集对齐计划书 §6.2 D4 修正版）**）**
 > 本版能力范围见 §七。任务卡与目录骨架现已可产出（脚本生成，须按本项目第七章「投标文件格式」替换 `01c` 章节树常量，**替换后必须跑保真机检**）。
 > 受套件总则（8 条铁律）约束；流水线状态机见 `references/流水线交接约定.md`。
 > **路由触发（重要）**：用户说"帮我写投标文件""帮我编标书""投标文件怎么写""做这个标"等编写类请求即命中本技能。若对话尚未加载本技能而用户提出上述请求，请先调用本技能再回答——禁止用通用知识直接编造投标框架/目录/清单（那会混淆 ⓪ 招标解读职责，且违背单一真源原则）。
@@ -96,13 +96,14 @@ description: 当用户说"帮我写投标文件""帮我编标书""投标文件�
 | 入口校验（stage / 前置产物 / 契约版本）与阻断指路 | ✅ 已实现 |
 | 状态读写（`facts_confirmed` → `planning` → `plan_confirmed`） | ✅ 已实现（G1 人工确认后写 `plan_confirmed`） |
 | 8 条铁律与 8 条反例 | ✅ 已落地 |
-| 任务卡生成（`03_bid-plan.json`，含 `preconditions`/`coverage`） | ✅ 已实现（`scripts/build_bid_plan.py`） |
-| 目录骨架（`04_outline.json`） | ✅ 已实现（章名取 `01c`，逐字不改） |
-| `01c` 格式章抽取 / `01b` 技术规范抽取 / `03c` 商务表框架 | ✅ 已实现（01c 章节树常量须按本项目第七章替换，**替换后必须过保真机检**） |
+| 任务卡生成（`03_bid-plan.json`，含 `preconditions`/`coverage`） | ✅ 已实现（`scripts/build_task_cards.py`，由 `build_bid_plan.py` 编排） |
+| 目录骨架（`04_outline.json`） | ✅ 已实现（章名取 `01c`，逐字不改；字段集为计划书 §6.2 D4 修正版：order/parent/depends_on/word_target/scoring_refs/status/notes，`assets/outline.schema.json` 校验） |
+| `01c` 格式章抽取 / `01b` 技术规范抽取 / `03c` 商务表框架 | ✅ 已实现（`parse_format_outline.py`/`parse_spec_items.py`/`parse_business_forms.py`；01c 章节树常量须按本项目第七章替换，**替换后必须过保真机检**） |
 | 01c 章节树保真机检（`verify_format_chapters.py`：编号＋章节名与原文逐字比对，检出连续化重排/删括号/漏节点） | ✅ 已实现（v0.3.0 新增；深州 42 节点回归全过，含负例） |
+| 全产物契约校验（`validate_plan.py`：03/04/01b/03c/01c 过 schema，只报告不修改） | ✅ v0.4.0 新增（未装 `jsonschema` 时降级结构自检并 WARN） |
 | 补遗对照前置项（`preconditions[].p-0001`） | ✅ 产出（`pass/fail/unknown` 三态，无「已提供但未看」） |
 | 篇幅权重分配、参数可达性预判 | ✅ 已实现（word_target 按评分权重分配） |
 | 素材缺口清单 + G1 闸门 | ✅ 已实现 |
 
-> 生成脚本：`scripts/build_bid_plan.py --bid <项目>/bid`（零三方依赖可跑；**可选依赖 `jsonschema`**——安装了才对 `03_bid-plan.json` 做完整 schema 校验，未安装则输出 `WARN` 并只做结构自检）。输入 `00_metadata.json`(stage=reviewed) + `01_tender-facts.json`(0.4)，输出 `01c`/`03`/`04`/`03c`/`01b` 与 `素材缺口清单.md`。`01c` 章节树已固化本项目第七章结构；换项目须重新抽取「投标文件格式」章覆盖 `FORMAT_CHAPTERS` 常量，**并跑 `scripts/verify_format_chapters.py --01c <产物> --headings <第七章标题抽取.json>` 验明逐字一致**——编号不得连续化重排（原文档跳号时如实保留，如深州技术标 1、2、7–12）、章节名括号说明不得删除（v0.16 阶段 1 验收 #2 实测缺陷，机检防再发）。
+> 生成脚本（计划书 §5 目录树五件套，`build_bid_plan.py` 为总编排）：`parse_format_outline.py`→`01c`、`parse_spec_items.py`→`01b`、`parse_business_forms.py`→`03c`、`build_task_cards.py`→`03`/`04`/素材缺口清单、`validate_plan.py`→全产物契约校验。总入口 `python scripts/build_bid_plan.py --bid <项目>/bid`（零三方依赖可跑；**可选依赖 `jsonschema`**——安装了才对产物做完整 schema 校验，未安装则输出 `WARN` 并只做结构自检）。输入 `00_metadata.json`(stage=reviewed) + `01_tender-facts.json`(0.4)，输出 `01c`/`03`/`04`/`03c`/`01b` 与 `素材缺口清单.md`。`01c` 章节树已固化本项目第七章结构；换项目须重新抽取「投标文件格式」章覆盖 `FORMAT_CHAPTERS` 常量（`parse_format_outline.py`），**并跑 `scripts/verify_format_chapters.py --01c <产物> --headings <第七章标题抽取.json>` 验明逐字一致**——编号不得连续化重排（原文档跳号时如实保留，如深州技术标 1、2、7–12）、章节名括号说明不得删除（v0.16 阶段 1 验收 #2 实测缺陷，机检防再发）。
 > 任务卡只负责"谁在哪个章节、用什么形式、达到什么篇幅、响应哪一条、状态如何"，**不写正文、不判定合规**（属 ③ / ②）。
