@@ -1,0 +1,262 @@
+{
+  "description": "M7 回归标记：钉死『声称已修』缺陷的正文落点，专治「假修复」（声称改了、实际没改）。每条 must_contain / must_not_contain 均已在 v0.12 正文核实真值。",
+  "updated": "2026-10-17",
+  "checks": [
+    {
+      "id": "E1",
+      "desc": "§3.6 落地段铁律条数必须为 8 条（v0.11 曾误写成 7 条且假称已修）",
+      "scope": "3.6",
+      "must_contain": ["套件总则 **8 条**写入"],
+      "must_not_contain": ["套件总则 **7 条**"]
+    },
+    {
+      "id": "E4",
+      "desc": "§5.2 共用 schema『标「是」』行数必须 8 行（v0.11 曾写 13 行且假称已修）",
+      "scope": "5.2",
+      "must_contain": ["标「是」的 8 行"],
+      "must_not_contain": ["标「是」的 13 行"]
+    },
+    {
+      "id": "E2E3a",
+      "desc": "§3.3 状态机起始节点须含 reviewed，且不得再有『⓪ 不写 stage』自否句",
+      "scope": "3.3",
+      "must_contain": ["reviewed(⓪创建)"],
+      "must_not_contain": ["⓪ 不写 stage"]
+    },
+    {
+      "id": "E2E3b",
+      "desc": "§6.2 stage 枚举须含 reviewed",
+      "scope": "6.2",
+      "must_contain": ["reviewed"],
+      "must_not_contain": []
+    },
+    {
+      "id": "P5",
+      "desc": "§6.2 五类事实真源须含 is_decisive 字段",
+      "scope": "6.2",
+      "must_contain": ["is_decisive"],
+      "must_not_contain": []
+    },
+    {
+      "id": "B2",
+      "desc": "§3.2 接缝例外表须含 03c_business-forms（授权 ① 抽商务表，v0.11 漏授权）",
+      "scope": "3.2",
+      "must_contain": ["03c_business-forms"],
+      "must_not_contain": []
+    },
+    {
+      "id": "E5",
+      "desc": "§11.2 验收 #10 须为『回退至 ① 补录后重跑 ②-A』，不得仍写『只交 G2 补录』",
+      "scope": "11.2",
+      "must_contain": ["回退至 ① 补录"],
+      "must_not_contain": ["只交 G2 补录"]
+    },
+    {
+      "id": "E7a",
+      "desc": "§6.2 须标注 criteria 为套件新增，不得残留『评分标准→criteria』旧写法",
+      "scope": "6.2",
+      "must_contain": ["`criteria` 为套件新增"],
+      "must_not_contain": ["评分标准→criteria"]
+    },
+    {
+      "id": "E7b",
+      "desc": "附录 B.1 须标注 criteria 为套件新增，不得残留『评分标准→criteria』旧写法",
+      "scope": "B.1",
+      "must_contain": ["`criteria` 为套件新增"],
+      "must_not_contain": ["评分标准→criteria"]
+    },
+    {
+      "id": "F1",
+      "desc": "§3.1 补遗必对照：补遗法律效力高于原文、须做补遗 vs 正本交叉对照（v0.13 新增，防假修复）",
+      "scope": "3.1",
+      "must_contain": ["补遗法律效力**高于**原文", "补遗 vs 正本"],
+      "must_not_contain": []
+    },
+    {
+      "id": "F2",
+      "desc": "§8.6.5 跨投标人数据隔离红线（v0.13 新增，防假修复）",
+      "scope": "8.6.5",
+      "must_contain": ["跨投标人数据隔离", "绝不喂进同一个知识库"],
+      "must_not_contain": []
+    },
+    {
+      "id": "F3",
+      "desc": "§4.3 偏离表响应栏禁照抄 + no_negative_allowed（v0.13 新增，防假修复）",
+      "scope": "4.3",
+      "must_contain": ["禁止照抄招标原文", "no_negative_allowed"],
+      "must_not_contain": []
+    },
+    {
+      "id": "F4",
+      "desc": "§2.2 决策前偏离预演（v0.13 新增，防假修复）",
+      "scope": "2.2",
+      "must_contain": ["决策前偏离预演"],
+      "must_not_contain": []
+    },
+    {
+      "id": "F5",
+      "desc": "§4.3.1 外部核验渠道（四库一平台等）（v0.13 新增，防假修复）",
+      "scope": "4.3.1",
+      "must_contain": ["四库一平台"],
+      "must_not_contain": []
+    },
+    {
+      "id": "F6",
+      "desc": "§4.3 G 类评分违规识别（v0.13 新增，防假修复）",
+      "scope": "4.3",
+      "must_contain": ["评分违规识别", "门槛当分卖"],
+      "must_not_contain": []
+    },
+    {
+      "id": "F7",
+      "desc": "§4.3 澄清边界（v0.13 新增，防假修复）",
+      "scope": "4.3",
+      "must_contain": ["澄清边界", "先随便填、等澄清再改"],
+      "must_not_contain": []
+    },
+    {
+      "id": "F8",
+      "desc": "§4.4 背对背复核（v0.13 新增，防假修复）",
+      "scope": "4.4",
+      "must_contain": ["背对背复核", "不看本稿，只对照"],
+      "must_not_contain": []
+    },
+    {
+      "id": "F9",
+      "desc": "§2.2 三道关卡模型 + 资格关卡（v0.13 新增，防假修复）",
+      "scope": "2.2",
+      "must_contain": ["三道关卡模型", "资格关卡"],
+      "must_not_contain": []
+    },
+    {
+      "id": "F10",
+      "desc": "§6.1 非纸面投标义务组（v0.13 新增，防假修复）",
+      "scope": "6.1",
+      "must_contain": ["非纸面投标义务"],
+      "must_not_contain": []
+    },
+    {
+      "id": "F11",
+      "desc": "§4.3.1 时间区间基准=deadline（v0.13 新增，防假修复）",
+      "scope": "4.3.1",
+      "must_contain": ["时间区间基准", "取 `deadline`"],
+      "must_not_contain": []
+    },
+    {
+      "id": "F12",
+      "desc": "§4.2 篇幅按分值权重分配（v0.13 新增，防假修复）",
+      "scope": "4.2",
+      "must_contain": ["篇幅按分值权重分配", "总分 10%"],
+      "must_not_contain": []
+    },
+    {
+      "id": "F13",
+      "desc": "§3.1 符号只是线索、文字才是判据（v0.13 新增，防假修复）",
+      "scope": "3.1",
+      "must_contain": ["符号只是线索、文字约束性措辞才是判据"],
+      "must_not_contain": []
+    },
+    {
+      "id": "F14",
+      "desc": "§8.6.5 工具合规选型三样（v0.13 新增，防假修复）",
+      "scope": "8.6.5",
+      "must_contain": ["工具选型看三样"],
+      "must_not_contain": []
+    },
+    {
+      "id": "F15",
+      "desc": "§4.1 客观分/主观分标记（v0.13 新增，防假修复）",
+      "scope": "4.1",
+      "must_contain": ["客观分 / 主观分标记"],
+      "must_not_contain": []
+    },
+    {
+      "id": "F16",
+      "desc": "§2.2 四类后果分级与应对优先级（v0.13 新增，防假修复）",
+      "scope": "2.2",
+      "must_contain": ["四类后果分级与应对优先级"],
+      "must_not_contain": []
+    },
+    {
+      "id": "X2",
+      "desc": "§2.2 资格关卡须引任务卡 source_type=qualification，不得误写 review_stage=qualification（X 层发现：任务卡 03_bid-plan 用 source_type；review_stage 属 01_tender-facts clauses）",
+      "scope": "2.2",
+      "must_contain": ["source_type=qualification"],
+      "must_not_contain": ["review_stage=qualification"]
+    },
+    {
+      "id": "H1",
+      "desc": "§3.2 接缝例外适用场景须为三类（01b/01c/03c），不得仍写仅两类（v0.12 #14 加 03c 后未改引用，专家终审发现）",
+      "scope": "3.2",
+      "must_contain": ["适用场景仅三类"],
+      "must_not_contain": ["适用场景仅两类"]
+    },
+    {
+      "id": "H3",
+      "desc": "§2.2 资格关卡须区分 expired（提示止损）与 fact_missing（§4.3.1 回退补录、非废标），不得笼统说 fact_missing 即提示止损（专家终审发现口径冲突）",
+      "scope": "2.2",
+      "must_contain": ["（事实库缺该资质记录）属**资料缺口**", "按 §4.3.1 回退至 ① 补录事实库后重跑 ②-A"],
+      "must_not_contain": []
+    },
+    {
+      "id": "H4",
+      "desc": "§6.2 01 字段表须含 clarifications[] 定义（F6/F7 扩展）；scoring.items 示例须含 subjective（F15），且说明其与 id/criteria 同属核心属性扩展（专家终审：唯一真源未同步）",
+      "scope": "6.2",
+      "must_contain": ["clarifications` | 本套件承载", "`scoring.items` 的 `subjective`（客观分/主观分标记"],
+      "must_not_contain": []
+    },
+    {
+      "id": "H5",
+      "desc": "§0.3 #7 变更指引落点须为 §0.6（实际在 §0.6 第 3 行注），不得仍写 §0.4（专家终审：引用错位）",
+      "scope": "本版变更（v0.9 → v0.10）",
+      "must_contain": ["§0.6 增变更指引"],
+      "must_not_contain": ["§0.4 增变更指引"]
+    },
+    {
+      "id": "N4",
+      "desc": "§3.3 metadata 字段集须与 §6.2 一致，含 project/skill_versions/updated_at（v0.11 N4 残留，第二位专家复核）",
+      "scope": "3.3",
+      "must_contain": ["`skill_versions`（五技能实读版本）", "`updated_at`（最近更新时间", "`project`（项目名"],
+      "must_not_contain": []
+    },
+    {
+      "id": "N5",
+      "desc": "§0.10 D7 括号须与 §13 现状一致（§13 仍有 2 项待确认），不得写「已无待定项」（v0.11 N5 残留）",
+      "scope": "0.10",
+      "must_contain": ["§13 仍有 2 项待确认"],
+      "must_not_contain": ["§13 已无待定项"]
+    },
+    {
+      "id": "N6",
+      "desc": "§10 OpenBidKit_Yibiao 更新时间须与表头「2026-10-17 快照」一致（10-17），不得写 10-16（v0.11 N6 残留）",
+      "scope": "10",
+      "must_contain": ["10-17 仍更新"],
+      "must_not_contain": ["10-16 仍更新"]
+    },
+    {
+      "id": "N7",
+      "desc": "§6.2 02_facts 示例不得用斜杠压缩写法，须行内映射 {source:..,updated_at:..,owner:..}（v0.11 N7 残留）",
+      "scope": "6.2",
+      "must_contain": [],
+      "must_not_contain": ["source: \"\" / updated_at: \"\" / owner: \"\"", "/ updated_at: \"\" / owner:"]
+    },
+    {
+      "id": "N8",
+      "desc": "§11.2 金额校验验收条须显式归属 scripts/check_business.py（§5 已有），不得只写「应被校验拦下」（v0.11 N8① 残留）",
+      "scope": "11.2",
+      "must_contain": ["check_business.py"],
+      "must_not_contain": []
+    },
+    {
+      "id": "F4b",
+      "desc": "§2.2 F4 预演输出落点须为 03_bid-plan.json 的 notes 字段，不得写不存在的『决策备注』（v0.15 自引入回归）",
+      "scope": "2.2",
+      "must_contain": ["相关条目的 `notes` 字段"],
+      "must_not_contain": ["`03_bid-plan.json` 的决策备注"]
+    }
+  ],
+  "global_absent_except_changelog": {
+    "desc": "以下错词全文不得出现（仅允许在 §0 变更记录里作为『改自何处』描述）",
+    "phrases": ["五库分层"]
+  }
+}

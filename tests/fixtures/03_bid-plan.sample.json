@@ -1,0 +1,38 @@
+{
+  "schema_version": "0.2",
+  "preconditions": [
+    {
+      "id": "p-0001", "item": "补遗/澄清文件对照", "result": "pass",
+      "evidence": "澄清修改文件 01 号（2026-09-28）：修改第二章 3.7 投标保证金金额；已同步任务卡 t-0003",
+      "blocking": true
+    }
+  ],
+  "items": [
+    {
+      "id": "t-0001", "source_type": "scoring", "source_ref": "S-01",
+      "chapter_id": "n-1000", "response_form": "scan", "word_target": 0,
+      "required_facts": ["perf-001"], "owner": "商务组",
+      "status": "ready", "notes": "业绩表＋合同关键页扫描件，按评分点 S-01 计 10 分"
+    },
+    {
+      "id": "t-0002", "source_type": "scoring", "source_ref": "S-02",
+      "chapter_id": "n-3a2f", "response_form": "text", "word_target": 8000,
+      "required_facts": [], "owner": "技术组",
+      "status": "blocked_by_clarify", "notes": "分值 20（总分 100 的 20%），重点章节；技术路线待 G4 确认"
+    },
+    {
+      "id": "t-0003", "source_type": "waste", "source_ref": "c-0001",
+      "chapter_id": "n-1000", "response_form": "business_form", "word_target": 0,
+      "required_facts": [], "owner": "商务组",
+      "status": "blocked_by_clarify",
+      "notes": "限价形态 amount；报价人工填写，Skill 不生成金额"
+    },
+    {
+      "id": "t-0004", "source_type": "qualification", "source_ref": "c-0002",
+      "chapter_id": "n-1000", "response_form": "scan", "word_target": 0,
+      "required_facts": ["qual-001"], "owner": "商务组",
+      "status": "ready", "notes": "资质证书扫描件；截止时间为 external_missing，已在成果开头告警"
+    }
+  ],
+  "coverage": {"scoring_total": 2, "mapped": 2, "unmapped": []}
+}

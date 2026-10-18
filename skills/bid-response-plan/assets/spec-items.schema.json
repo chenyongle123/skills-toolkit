@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "spec-items.schema.json",
+  "title": "01b_spec-items.json（技术规范条目）",
+  "description": "计划书 §6.2。由 ① 按接缝例外从招标技术规范表抄行：只抄条款号、原文、要求值、单位、公差，**不得判定是否废标、是否偏离、风险等级**（抄行可核对，判定不可核对）。行数须与规范表逐行一致（合并单元格拆多行、跨页同表连续计数不重置、并列项计多项）。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "source", "items"],
+  "properties": {
+    "schema_version": {"const": "0.1"},
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["file", "page_range"],
+      "properties": {
+        "file": {"type": "string", "description": "技术规范所在文件名"},
+        "page_range": {"type": "string", "description": "页码范围；无分页文档填 n/a-无分页"}
+      }
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "clause", "page", "requirement", "required_value", "unit",
+                     "tolerance", "no_negative_allowed", "raw_text"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^sp-\\d{3,}$", "description": "稳定主键，排序变化不改"},
+          "clause": {"type": "string", "description": "条款号，照录（如「技术规范 4.2.1」）"},
+          "page": {"type": "string", "description": "页码；无分页文档填 n/a-无分页（保持非空）"},
+          "requirement": {"type": "string", "description": "要求项名称（如「额定电流」），照录"},
+          "required_value": {"type": "string", "description": "要求值，照录（含 ≥ ≤ 等符号），不得换算或四舍五入"},
+          "unit": {"type": "string", "description": "单位，照录；原文无单位置空串"},
+          "tolerance": {"type": "string", "description": "公差，照录；无则置空串"},
+          "no_negative_allowed": {
+            "type": "boolean",
+            "description": "原文明示「不允许负偏离/必须满足」时为 true；**仅据措辞判定，不据 ★/加粗/标红**"
+          },
+          "raw_text": {"type": "string", "description": "原文整行照录，保留符号与省略号，不改写"}
+        }
+      }
+    }
+  }
+}

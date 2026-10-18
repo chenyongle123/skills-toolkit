@@ -1,0 +1,102 @@
+# facts.schema.yaml —— 02_facts 事实库字段定义
+# 版本：0.1（阶段 0）｜适用：①②③ 各一份，sha256 必须一致
+# 性质：声明式字段契约（非 JSON Schema）。②③ 直接按本文件解析 02_facts.yaml；
+#       02_facts.md 为人读副本，内容必须与 yaml 一致，冲突时以 yaml 为准并告警。
+# 铁律 1：事实库**不可改写、不可新增，逐字引用**；缺 source 的事实不得进入交付稿。
+
+schema_version: "0.1"
+
+description: >
+  五类事实（资质/业绩/人员/设备/财务）的单一真源。每条事实必须有
+  source / updated_at / owner / is_decisive 四个字段。AI 只读，不写、不改、不补。
+
+common_required: [source, updated_at, owner, is_decisive]
+
+common_fields:
+  id:
+    type: string
+    required: true
+    note: 稳定主键；前缀区分类别（qual-/perf-/pers-/eq-/fin-），排序变化不改
+  source:
+    type: string
+    required: true
+    note: 来源（证书原件/合同原件/审计报告/官方平台核验记录等）；缺失即该条不得进入交付稿
+  updated_at:
+    type: string
+    format: date
+    required: true
+    note: 录入或最近核验日期；超 12 个月时 ③ 引用须提示
+  owner:
+    type: string
+    required: true
+    note: 录入责任人
+  is_decisive:
+    type: boolean
+    required: true
+    note: 是否为废标级（true/false），供缺件按风险排序
+  evidence_ref:
+    type: string
+    required: false
+    note: 关联 03b_evidence-index.json 的条目 id（ev-xxx）；缺则④装配时列为缺件
+
+sections:
+
+  qualifications:                      # 资质
+    id_prefix: qual-
+    fields:
+      name:        {type: string, required: true}
+      cert_no:     {type: string, required: true}
+      issuer:      {type: string, required: true}
+      valid_to:    {type: string, format: date, required: true,
+                    note: 与 00_metadata.deadline 比对；早于截止日即 expired（②-A F 类）}
+      evidence_ref: {type: string, required: false}
+
+  performances:                        # 业绩
+    id_prefix: perf-
+    fields:
+      project:      {type: string, required: true}
+      amount:       {type: number, required: true, note: 合同额，不许由 AI 估算}
+      unit:         {type: string, required: true, note: 通常为「万元」}
+      contract_no:  {type: string, required: true}
+      completed_on: {type: string, format: date, required: true}
+      evidence_ref: {type: string, required: false}
+
+  personnel:                           # 人员
+    id_prefix: pers-
+    fields:
+      name:         {type: string, required: true}
+      cert:         {type: string, required: true}
+      cert_no:      {type: string, required: true}
+      valid_to:     {type: string, format: date, required: true}
+      evidence_ref: {type: string, required: false}
+
+  equipment:                           # 设备
+    id_prefix: eq-
+    fields:
+      name:  {type: string, required: true}
+      model: {type: string, required: true}
+      qty:   {type: integer, required: true, minimum: 1}
+      owned: {type: boolean, required: true, note: 自有/租赁；租赁须能提供租赁证明}
+
+  financials:                          # 财务
+    id_prefix: fin-
+    fields:
+      year:    {type: integer, required: true}
+      revenue: {type: number, required: true}
+      unit:    {type: string, required: true, note: 通常为「万元」}
+
+rules:
+  - id: R1
+    text: 缺 source 的事实不得进入交付稿（铁律 1 的可执行判据）。
+  - id: R2
+    text: 缺 updated_at 或超 12 个月，③ 引用时提示；不得静默使用。
+  - id: R3
+    text: 扫描件与事实库不一致时输出「待核」，不自动择一；不据扫描件 OCR 填表。
+  - id: R4
+    text: 招标要求的资质/证书在事实库无对应条目 → fact_missing（资料缺口，非废标风险），回退 ① 补录。
+  - id: R5
+    text: 事实库由知识库维护人维护；AI 不得新增、改写、删除任何一条。
+
+# 与 02_facts.md 的关系：
+#   yaml = 机器解析源；md = 人读副本（表格）。两者条目数必须相等，
+#   不一致时以 yaml 为准，并在 ② 报告中列差异（不得自动取其一）。

@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "metadata.schema.json",
+  "title": "00_metadata.json（流水线唯一状态载体）",
+  "description": "计划书 §3.3／§6.2。由 ⓪ 出口创建，只写 schema_version 与 stage=reviewed；其余字段由各技能在对应阶段写入。**required 只列两个字段**：⓪ 创建时不允许代填 deadline/project/style_source（铁律 5：不代投标人决策；deadline 解析错一天则全部时效判断皆错）。下游读到缺字段时按「尚未写入」处理并阻断，不得以空串通过。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "stage"],
+  "properties": {
+    "schema_version": {
+      "const": "0.1",
+      "description": "结构版本；结构变更才升，字段增删不改变语义时保持"
+    },
+    "project": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "no", "purchaser"],
+      "properties": {
+        "name": {"type": "string"},
+        "no": {"type": "string"},
+        "purchaser": {"type": "string"}
+      },
+      "description": "项目名/编号/采购人；由 ⓪ 或 ① 写入"
+    },
+    "stage": {
+      "type": "string",
+      "enum": [
+        "reviewed", "facts_confirmed", "planning", "plan_confirmed",
+        "checking", "check_confirmed", "route_confirmed", "writing",
+        "rechecking", "recheck_confirmed", "exported", "exhausted"
+      ],
+      "description": "唯一进度判据。只允许前进或按交接约定回退，不允许跳跃。责任表见 references/流水线交接约定.md §二"
+    },
+    "bid_mode": {
+      "type": "string",
+      "enum": ["normal", "blind"],
+      "description": "暗标标记；由 ① 按 ⓪ 产物（blind_format 语境①）写入，③④ 只读不改"
+    },
+    "deadline": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}\\+08:00$",
+      "description": "投标截止日，ISO 8601 精确到分钟含时区（格式 YYYY-MM-DDTHH:mm+08:00）。**时效判定唯一依据**；必须由 ① 在 G2 时人工录入并二次确认，AI 不得从招标文件自动解析后直接采用"
+    },
+    "style_source": {
+      "type": "string",
+      "enum": ["tender_required", "client_template", "baseline"],
+      "description": "排版依据档位；必须与 01c.typography.source 一致，不一致记 failed_nodes"
+    },
+    "skill_versions": {
+      "type": "object",
+      "description": "各技能入口写入自己实读的 frontmatter version；不写常量",
+      "additionalProperties": {"type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$"}
+    },
+    "failed_nodes": {
+      "type": "array",
+      "description": "校验失败的节点名（如 style_source_mismatch）",
+      "items": {"type": "string"}
+    },
+    "retry_count": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 2,
+      "description": "回退计数上限 2；耗尽置 exhausted=true 转人工"
+    },
+    "exhausted": {
+      "type": "boolean",
+      "description": "重试耗尽标记；为 true 时任何技能不得继续自动推进"
+    },
+    "install_mode": {
+      "type": "string",
+      "enum": ["kit", "standalone"],
+      "description": "读不到 skills-lock.json 时记 standalone，**不得报错**"
+    },
+    "warnings": {
+      "type": "array",
+      "description": "非阻断提示落点（版本不一致、expiring_soon、旧规则产物）；④ 在《排版依据说明》中一并列出",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["code", "message"],
+        "properties": {
+          "code": {"type": "string"},
+          "message": {"type": "string"},
+          "at": {"type": "string", "description": "产生时间，ISO 8601 含时区"}
+        }
+      }
+    },
+    "updated_at": {
+      "type": "string",
+      "description": "最近一次写回时间，ISO 8601 含时区"
+    }
+  }
+}

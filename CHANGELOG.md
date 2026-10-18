@@ -4,6 +4,111 @@
 
 Tag 约定：技能版本 tag 为 `技能名/vX.Y.Z`；仓库级变更 tag 为 `repo/vX.Y.Z`。
 
+## [repo/v1.3.0] - 2026-10-18
+
+### Added
+
+- 新增投标文件编写套件四技能 ①—④（`bid-response-plan` / `bid-compliance-check` / `bid-technical-proposal` / `bid-docx-export`），含阶段 0 骨架与 ①② v0.2.0 阶段 1 首批实现
+- `tests/`：契约校验三件（`validate_contract.py` C1–C11＋C5b、`scan_doc.py` D1–D6、`mini_schema.py`）+ `fixtures/` 8 份
+- `skills-lock.json`：五技能版本 + 8 个契约 schema hash 与副本清单
+- `docs/`：v0.1–v0.16 各轮审核判断、交叉验证报告、阶段 0 验收记录、触发实测记录、回归标记 `regression_markers.json`
+- `business-contract-review` 补 README
+
+### Changed
+
+- README 技能一览表：版本刷新 + 四技能条目 + 触发边界与 lock 管控边界说明（外挂技能不入 lock）
+
+## [bid-response-plan/v0.2.0] / [bid-compliance-check/v0.2.0] - 2026-10-18
+
+> 阶段 1 首批落地：① 任务卡生成实装、②-A 覆盖检查实装。③④ 保持 v0.1.1 骨架不动。
+
+### Added（① bid-response-plan v0.2.0）
+
+- `scripts/build_bid_plan.py`：读 `00_metadata.json`（stage=reviewed）+ `01_tender-facts.json`（0.4），产出 `01b`/`01c`/`03_bid-plan.json`（0.2，含 `preconditions`）/`03c`/`04_outline.json` 与素材缺口清单；零三方依赖可跑，可选 `jsonschema` 做完整校验
+- `references/` 新增 6 份：任务卡模板、目录骨架规则、七类-六环节映射、技术规范条目抽取规则、格式章与排版要求抽取规则、商务表格抽取规则
+- SKILL.md §三 主流程 8 步（含 G1 闸门）、§七 能力范围表
+
+### Added（② bid-compliance-check v0.2.0）
+
+- `scripts/check_compliance.py`：②-A 覆盖检查实装（A 废标/资格覆盖、G 评分违规识别——只标注不定性、D 商务表齐全性、F 资质时效四态、C 形式字段部分），`--mode B` 为阶段 2 占位；产出 `06_compliance/{compliance-report.md,compliance-report.json,form-check.md,business-check.md,deviation-table.md}`
+- `assets/compliance-report.schema.json`（阶段 0 未建，本版补齐并入 lock）
+
+### Changed
+
+- ①② frontmatter 0.1.2/0.1.1 → 0.2.0；`skills-lock.json` 升 `kit/v0.2.0-stage1`（schema 7→8）
+- ① `01c` 章节树常量固化首测项目第七章结构，换项目须重新抽取覆盖 `FORMAT_CHAPTERS`
+
+### Notes
+
+- 契约机检 C1–C11＋C5b 全绿；`scan_doc.py` 对计划书/验收记录 D1–D6 全绿
+- ②-A 换模型盲审工单已生成（`workdir/xaudit-2026-10-18-02A-code.md` / `-spec.md`），**回执未回，X 层未闭环**，本版相关声明效力以机检＋自审为限
+- 阶段 1 验收余项待执行：真实招标文件试跑（两轨对账、评分分值闭合验算、跳步拦截实测）、平台端到端触发验证（须用户新会话亲自发话）
+
+## [delivery-audit/v1.1.2] - 2026-10-17
+
+> 补录条目（v1.1.0–v1.1.2 未及时入库）。
+
+### Added
+
+- v1.1.0：M 层机器自检（M1–M7，`scripts/scan_doc.py`）、X 层换模型交叉验证（盲审工单模板 `references/cross-audit-template.md`）、SELF-ONLY 四态输出、结构性变更后强制回扫（§7）
+- v1.1.1：M6 版本一致检查
+- v1.1.2：M7 回归标记（防假修复）——JSON 钉死"错词必须消失/对词必须在节内出现"；强制"完成/已修复"声明须 M7 绿 + X 层完成，否则最高标 ⚠️ SELF-ONLY 并显式注明未经独立复核
+
+### Fixed
+
+- v1.1.1：M2 两类误报
+
+## [bid-response-plan/v0.1.2] / [bid-compliance-check/v0.1.1] / [bid-technical-proposal/v0.1.1] / [bid-docx-export/v0.1.1] - 2026-10-17
+
+> 触发实测驱动的 description 修订 + `bid-plan` 契约 0.2。**能力范围未变**（四技能仍是骨架版，不产出任务卡/检查/正文/导出）。
+
+### Added
+
+- `bid-plan.schema.json` 0.1→0.2：顶层新增 `preconditions`——`p-0001` 恒为「补遗/澄清文件对照」，`result` 三态（pass/fail/unknown），`blocking` 为 true；**不列入 `required`**，0.1 旧文件仍合法
+- `tests/validate_contract.py` 新增 **C11**：校验补遗对照前置项在位、首项为 `p-0001`、非 pass 必须有 evidence
+
+### Changed
+
+- ① description：补「帮我写投标文件」「帮我编投标文件」触发语；改为「章名逐字取自 01c，不回读招标原文」
+- ② description：`投标文件合规自检` → `投标响应合规自检`（去掉与 ⓪ 抢触发的裸词）
+- ③ description：加「须已有任务卡」「不写整套投标文件、不写商务标/资格标/报价表」「用户说…属全流程入口，不属本技能」
+- ④ description：`投标文件排版` → `投标材料排版`、`把标书装订成 PDF` → `把成稿装订成 PDF`；加「须已有成稿」「问格式章要求属 ⓪，本技能不做解读」
+- `--write-lock` 修复：改版后不再因"与旧 lock 比对失败"而拒绝写入（原先会导致改版死锁）
+
+### Notes
+
+- 触发实测共四轮（含 2 次无效：一次因注入截断、一次因运行目录未同步而读到旧 description），三条阻断级指标最终通过；效力边界与残余风险见 `docs/v0.16_触发实测记录.md`
+- 实测后按既定方案只保留 ① 在运行目录，②③④ 已卸载，待各自阶段上线再装
+
+## [tender-document-review/v1.4.0] - 2026-10-17
+
+> 追加"与套件衔接"一节：声明受套件总则约束、出口创建 `00_metadata.json`、输出末尾加交接提示。**提取规则（11 条铁律、7 步流程、七类输出格式）一字未改**；`schema_version` 仍为 0.4、`source_rule_seq` 仍为 10。
+
+### Added
+
+- SKILL.md 第十一节「与投标文件编写套件的衔接」：总则归属（两套编号分阶段生效）、状态文件（只写 `schema_version` 与 `stage=reviewed`，不代填截止日/项目信息）、交接提示行
+- `scripts/emit_facts.py` 的 `FALLBACK_SKILL_VERSION` 同步为 `1.4.0`
+
+### Changed
+
+- `assets/tender-facts.schema.json` 自述由"计划书 §6.2 回填待 v0.16 合并"改为"已回填 v0.16 计划书 §6.2"
+
+## [bid-response-plan/v0.1.0] / [bid-compliance-check/v0.1.0] / [bid-technical-proposal/v0.1.0] / [bid-docx-export/v0.1.0] - 2026-10-17
+
+> 阶段 0 骨架版：只落"结构性契约"，不落业务规则。
+
+### Added
+
+- 四技能 SKILL.md：定位与边界、入口校验（stage / 前置产物 / 契约版本）、8 条铁律（逐字一致）、出口指路、本版能力范围声明
+- `references/流水线交接约定.md` **四份逐字一致**（sha256 相同）：状态机责任表、四步入口校验、阻断输出格式、出口五项写回、G1–G5 归属、回退规则、lock 三级降级
+- `references/常见错误.md`：8 条铁律反例（错误做法/为什么错/正确做法/判定线索）
+- `assets/` 契约 schema 落位（见 tests/validate_contract.py）
+
+### Notes
+
+- 骨架版对"前置齐备但要求产出"的请求输出「能力未实现」，**不生成半成品**；任务卡/检查/正文/导出分别随阶段 1/2/3 交付
+- 跨章一致性检查全套件只保留 ② 一份实现，③ 不复制
+
 ## [tender-document-review/v1.3.1] - 2026-10-17
 
 > 专家复审（换模型）后的文档/契约一致性补丁，无提取规则变更；`source_rule_seq` 仍为 10，`schema_version` 仍为 0.4（向后兼容）。

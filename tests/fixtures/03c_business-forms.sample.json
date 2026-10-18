@@ -1,0 +1,18 @@
+{
+  "schema_version": "0.1",
+  "forms": [
+    {
+      "id": "bf-01", "name": "投标函", "tender_page": "P45", "chapter_id": "n-1000",
+      "required_fields": ["投标报价（大写）", "投标报价（小写）", "工期", "质量目标"],
+      "seal": "法定代表人签字＋单位公章", "copies": 1,
+      "filled_file": "08_business/bf-01_投标函.pdf", "status": "filled"
+    },
+    {
+      "id": "bf-02", "name": "法定代表人身份证明", "tender_page": "P47", "chapter_id": "n-1000",
+      "required_fields": ["姓名", "职务", "身份证号"],
+      "seal": "单位公章", "copies": 1,
+      "filled_file": "", "status": "blank"
+    }
+  ],
+  "consistency_rules": ["大写金额 = 小写金额", "总价 = 分项合计"]
+}

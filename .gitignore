@@ -5,10 +5,20 @@
 .DS_Store
 Thumbs.db
 
+# Python 运行期缓存（各 skill scripts/ 跑动产生，环境产物不入库）
+__pycache__/
+*.pyc
+
+# 运行期工作区（计划书 §5）
+workdir/
+
 # 测试与临时目录
 _test*/
 sandbox/
 output/
+
+# 测试本地隔离依赖（PyYAML 等，pip --target 安装，不入库）
+tests/_vendor/
 
 # 本地规划稿（不公开）
 docs/投标文件Skill建设计划*.md

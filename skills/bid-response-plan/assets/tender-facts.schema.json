@@ -1,0 +1,153 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "tender-facts.schema.json",
+  "title": "tender-facts.json（套件语境即 01_tender-facts.json）",
+  "description": "tender-document-review v1.4.0 机读产物。字段集与 **v0.16 计划书 §6.2** 定义一致（price_cap_form / value_state 两个可选字段由 v0.16 delta 新增，已回填计划书）；本文件是其机器可读约束，不含契约以外的字段。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "contract_schema_version", "source_skill_version", "source_rule_seq",
+    "project", "meta", "clauses", "scoring",
+    "system_clues", "clarifications", "contacts",
+    "blind_format", "contract_deviations", "coverage_map"
+  ],
+  "properties": {
+    "schema_version": {"const": "0.4"},
+    "contract_schema_version": {"const": "0.4"},
+    "source_skill_version": {
+      "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "产物生成时 tender-document-review 的 frontmatter version；下游按 semver 三档判定兼容性，不等值阻断"
+    },
+    "source_rule_seq": {
+      "type": "integer",
+      "description": "判词库「规则变更记录」历史序号，仅追溯快照，不参与任何校验判定，不得设已知值校验"
+    },
+    "project": {
+      "type": "object", "additionalProperties": false,
+      "required": ["name", "no", "purchaser"],
+      "properties": {
+        "name": {"type": "string"}, "no": {"type": "string"}, "purchaser": {"type": "string"}
+      }
+    },
+    "meta": {
+      "type": "object", "additionalProperties": false,
+      "required": ["doc_source_type", "business_type", "submission_form"],
+      "properties": {
+        "doc_source_type": {
+          "type": "string",
+          "description": "前置判定：文件来源类型，如 招标/询价/谈判（含央企/国企自采分类标签的判定结论）"
+        },
+        "business_type": {
+          "type": "string", "enum": ["works", "goods", "services"],
+          "description": "工程→works、货物→goods、服务→services（中英映射，§6.2）"
+        },
+        "submission_form": {
+          "type": "string", "enum": ["电子", "纸质"],
+          "description": "递交形态判定结论；混合递交时取主形态并在 clauses 备注中说明"
+        }
+      }
+    },
+    "clauses": {
+      "type": "array",
+      "description": "七类限制性条款，逐条对应 Markdown 七类表的一行；条目数守恒（见 SKILL.md 10.3）",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["id", "local_no", "item", "category", "review_stage",
+                     "clause", "page", "line", "text", "consequence", "remark", "note"],
+        "properties": {
+          "id": {
+            "type": "string", "pattern": "^c-\\d{4}$",
+            "description": "本套件生成的稳定主键，排序变化不改；不取上游序号"
+          },
+          "local_no": {"type": "string", "description": "上游序号原样保留（含 1B-3、5B 等字母编号），不得重排"},
+          "item": {"type": "string", "description": "事项，照录"},
+          "category": {
+            "type": "string",
+            "description": "七类小节标题原样照抄（①时间节点与流程 ②投标资格条件 ③废标/否决情形 ④评标与定标标准 ⑤履约保证金与商务条款 ⑥合同关键约束 ⑦形式与程序要求），不重编码"
+          },
+          "review_stage": {
+            "type": "string",
+            "enum": ["form", "responsive", "qualification", "waste", "scoring", "other"],
+            "description": "派生字段，由七类-六环节映射生成，允许一类对多环节"
+          },
+          "price_cap_form": {
+            "type": "string",
+            "enum": ["amount", "rate", "pending", "tentative", "none", "unmentioned", ""],
+            "description": "可选（v1.3.1 新增）。仅 ⑤ 类限价项填：amount 金额 / rate 费率·下浮率 / pending 待澄清发布 / tentative 暂定价参与总价 / none 明确无限价 / unmentioned 未载明；非限价项置空串"
+          },
+          "value_state": {
+            "type": "string",
+            "enum": ["stated", "unstated", "draft_blank", "external_missing", ""],
+            "description": "可选（v1.3.1 新增）。stated 已载明 / unstated 文件未载明 / draft_blank 文件留白未定稿 / external_missing 外指文件未随附；未判定置空串"
+          },
+          "clause": {"type": "string", "description": "条款号（出处拆分一）"},
+          "page": {"type": "string", "description": "页码（出处拆分二）；必须非空，否则标 needs_original；无分页文档（docx）填 n/a-无分页"},
+          "line": {"type": "string", "description": "行号（出处拆分三）；扫描件置空；无分页文档（docx）填段落号／表号"},
+          "text": {"type": "string", "description": "原文要求照录，保留引号与省略号，不改写"},
+          "consequence": {
+            "type": "string",
+            "description": "仅取备注中明示的后果；未载明写「后果未载明」，不得由 AI 评定"
+          },
+          "remark": {"type": "string", "description": "备注列照录（含「以最新澄清为准」等）"},
+          "note": {"type": "string", "description": "扫描件写「扫描件」；无分页文档（docx）写「无分页文档」；其余置空。page 字段在无分页文档下填 n/a-无分页，定位精度由 clause＋line（段落号／表号）承担"}
+        }
+      }
+    },
+    "scoring": {
+      "type": "object", "additionalProperties": false,
+      "required": ["items"],
+      "properties": {
+        "items": {
+          "type": "array",
+          "description": "评分点响应矩阵；条目数守恒（见 SKILL.md 10.3）。上游 6 字段原样，id/criteria/subjective 为套件扩展；不得加入「所属章节/响应形式/目标篇幅/状态」四类规划列（落 03_bid-plan.json）",
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["id", "item", "points", "criteria", "subjective",
+                         "required_materials", "evidence", "gap", "owner"],
+            "properties": {
+              "id": {"type": "string", "description": "上游评分点编号，如 S-01"},
+              "item": {"type": "string", "description": "评分项"},
+              "points": {"type": "number", "description": "分值"},
+              "criteria": {"type": "string", "description": "评分标准（套件新增列，上游矩阵无此列）"},
+              "subjective": {"type": "boolean", "description": "客观分/主观分标记（F15）"},
+              "required_materials": {"type": "string", "description": "所需响应材料"},
+              "evidence": {"type": "string", "description": "已有证据（待投标人提供）"},
+              "gap": {"type": "string", "description": "缺口"},
+              "owner": {"type": "string", "description": "负责人"}
+            }
+          }
+        }
+      }
+    },
+    "system_clues": {
+      "type": "array",
+      "description": "适用体系线索摘录表照录；仅线索，不构成法域认定",
+      "items": {"type": "object"}
+    },
+    "clarifications": {
+      "type": "array",
+      "description": "待澄清事项照录；扩展承载两类（F6/F7）：①疑似评分违规控标信号（只标注不定性）②澄清边界提示（纯笔误可澄清/履约条件不可澄清）",
+      "items": {"type": "object"}
+    },
+    "contacts": {
+      "type": "object",
+      "description": "联系与账户信息照录（招标人/代理/监督部门、投标保证金账户、履约保证金账户、开标地点）",
+      "additionalProperties": true
+    },
+    "blind_format": {
+      "type": "object",
+      "description": "暗标专项 8 项照录（仅语境①展开；语境②只记语境不展开）；与 01c.typography 前 8 字段一对一",
+      "additionalProperties": true
+    },
+    "contract_deviations": {
+      "type": "array",
+      "description": "通用↔专用改写项比对表照录，供商务标响应使用",
+      "items": {"type": "object"}
+    },
+    "coverage_map": {
+      "type": "array",
+      "description": "章节覆盖对照表照录，逐章列全，不以「已覆盖全部章节」代替",
+      "items": {"type": "object"}
+    }
+  }
+}
