@@ -565,7 +565,7 @@ def main():
         if os.path.exists(spec_items):
             try:
                 n = len(load(spec_items).get("items", []))
-                f.write(f"- 偏离表行 vs 01b 技术规范条目：01b 现有 {n} 条（2.性能指标节已全量 14 行，第五章其余 8 节挂起），逐行一致性以 01b 全量后重跑为准。\n")
+                f.write(f"- 偏离表行 vs 01b 技术规范条目：01b 现有 {n} 条（第五章已全量 4 节：2.性能指标 14 行＋3.勘察设计 69 行＋5.调试验收 5 行＋6.施工工期 16 行；挂起 4/7/8/9 节），逐行一致性以 01b 全量后重跑为准。\n")
             except Exception:
                 f.write("- 01b 读取异常，偏离表逐行一致性待补。\n")
         else:
