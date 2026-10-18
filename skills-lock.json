@@ -1,12 +1,12 @@
 {
   "kit_version": "kit/v0.2.0-stage1",
-  "generated_at": "2026-10-18T12:00:21+08:00",
+  "generated_at": "2026-10-18T15:03:12+08:00",
   "skills": {
     "tender-document-review": {
-      "version": "1.4.1"
+      "version": "1.5.0"
     },
     "bid-response-plan": {
-      "version": "0.2.0"
+      "version": "0.3.0"
     },
     "bid-compliance-check": {
       "version": "0.2.2"
@@ -29,7 +29,7 @@
       ]
     },
     "tender-facts.schema.json": {
-      "hash": "0760cb8b299b35c239be6f27a411c8716dbc675c4c5b213b08e4c8bef83d5252",
+      "hash": "15a549314f56a36fb90e914df601d239d049dec05e49fdc2d7fdbd0e755e01e8",
       "copies": [
         "tender-document-review",
         "bid-response-plan"
