@@ -4,6 +4,19 @@
 
 Tag 约定：技能版本 tag 为 `技能名/vX.Y.Z`；仓库级变更 tag 为 `repo/vX.Y.Z`。
 
+## [repo/v1.7.1] - 2026-10-18
+
+> 独立审计（换模型交叉验证）整改：B 级（契约矩阵范围声明 + 有意排除注释固化）。A 级（安装副本与仓库源漂移）已同步安装目录，不落仓库。
+
+### Changed
+
+- `skills-lock.json`：新增 `_scope`（声明 in_scope 五技能与 out_of_scope 的 `delivery-audit` / `business-contract-review`）与 `_intentional_excludes`（`knowledge.schema.yaml` 不进 lock 的依据，见验收记录 v0.16），固化审计 B 级发现。
+- `tests/validate_contract.py`：`--write-lock` 机器再生时保留 `_` 前缀诊断性元字段（原会被静默抹掉），确保 `_scope` / `_intentional_excludes` 持久。
+
+### Notes
+
+- A 级修复（安装副本 `~/.workbuddy/skills/` 对齐仓库源）不落仓库；旧安装副本备份于 `workdir/backup_install_skills_2026-10-18/`。6 技能（tender-document-review 1.5.0 / bid-response-plan 0.6.0 / bid-compliance-check 0.3.2 / delivery-audit 1.1.3 / bid-technical-proposal 0.1.1 / bid-docx-export 0.1.1）已字节一致同步；business-contract-review 1.0.0 安装与仓库本就一致，未动。
+
 ## [tender-document-review/v1.5.0] - 2026-10-18
 
 > ⓪ 加权型评分闭合验算（阶段 1 验收 #0 根因修复）：schema 三字段 + `emit_facts.py` 双口径。`schema_version`/`contract_schema_version` 保持 `0.4`（可选字段追加，同 v1.3.1 先例）。
