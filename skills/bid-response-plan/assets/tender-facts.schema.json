@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "tender-facts.schema.json",
   "title": "tender-facts.json（套件语境即 01_tender-facts.json）",
-  "description": "tender-document-review v1.4.0 机读产物。字段集与 **v0.16 计划书 §6.2** 定义一致（price_cap_form / value_state 两个可选字段由 v0.16 delta 新增，已回填计划书）；本文件是其机器可读约束，不含契约以外的字段。",
+  "description": "tender-document-review v1.5.0 机读产物。字段集与 **v0.16 计划书 §6.2** 定义一致（price_cap_form / value_state 两个可选字段由 v0.16 delta 新增；scoring.total_stated / scoring.weight_basis / scoring.items[].weight 三个可选字段由 v1.5.0 delta 新增，均已回填计划书）；本文件是其机器可读约束，不含契约以外的字段。",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -97,6 +97,14 @@
       "type": "object", "additionalProperties": false,
       "required": ["items"],
       "properties": {
+        "total_stated": {
+          "type": "number",
+          "description": "可选（v1.5.0 新增）。文件明示总分（如 100）；加权型评分（各部分满分×权重计入总分）同样填总分口径值。须人工从原文转录，AI 不得自动解析招标文件后直接采用（同 deadline 口径）"
+        },
+        "weight_basis": {
+          "type": "string",
+          "description": "可选（v1.5.0 新增）。加权口径的原文依据（摘录），如「商务10%+技术40%+价格50%（各100分，总分100）」；items[].weight 非空时必填，直接相加型评分置空"
+        },
         "items": {
           "type": "array",
           "description": "评分点响应矩阵；条目数守恒（见 SKILL.md 10.3）。上游 6 字段原样，id/criteria/subjective 为套件扩展；不得加入「所属章节/响应形式/目标篇幅/状态」四类规划列（落 03_bid-plan.json）",
@@ -107,7 +115,11 @@
             "properties": {
               "id": {"type": "string", "description": "上游评分点编号，如 S-01"},
               "item": {"type": "string", "description": "评分项"},
-              "points": {"type": "number", "description": "分值"},
+              "points": {"type": "number", "description": "分值。加权型评分填「本条目所属权重段的满分」，直接相加型填该项分值"},
+              "weight": {
+                "type": "number",
+                "description": "可选（v1.5.0 新增）。权重段权重（10%→0.1）。仅加权型评分（各部分有各自满分、按权重计入总分）填；直接相加型评分（各评分项分值直接累加）不填。与 scoring.total_stated 配合做加权闭合验算"
+              },
               "criteria": {"type": "string", "description": "评分标准（套件新增列，上游矩阵无此列）"},
               "subjective": {"type": "boolean", "description": "客观分/主观分标记（F15）"},
               "required_materials": {"type": "string", "description": "所需响应材料"},
