@@ -1,0 +1,144 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "compliance-report",
+  "description": "② bid-compliance-check 产出（②-A 覆盖检查 / ②-B 响应检查）。schema 于 v0.16 阶段 0 规划，随 ② v0.2.0（②-A）落地。",
+  "type": "object",
+  "required": ["schema_version", "mode", "summary", "g3_disposition"],
+  "properties": {
+    "schema_version": {"type": "string"},
+    "mode": {"type": "string", "enum": ["A", "B"]},
+    "generated_from": {
+      "type": "object",
+      "properties": {
+        "01_contract_schema_version": {"type": ["string", "null"]},
+        "03_schema_version": {"type": ["string", "null"]},
+        "entry_stage": {"type": "string"},
+        "entry_ok": {"type": "boolean"},
+        "version_ok": {"type": "boolean"},
+        "plan_ok": {"type": "boolean"},
+        "deadline": {"type": ["string", "null"]}
+      }
+    },
+    "summary": {
+      "type": "object",
+      "properties": {
+        "entry_stage": {"type": "string"},
+        "entry_ok": {"type": "boolean"},
+        "version_ok": {"type": "boolean"},
+        "plan_ok": {"type": "boolean"},
+        "waste_total": {"type": "integer"},
+        "waste_unmapped": {"type": "array", "items": {"type": "string"}},
+        "waste_disposition": {"type": "object"},
+        "qual_total": {"type": "integer"},
+        "qual_unmapped": {"type": "array", "items": {"type": "string"}},
+        "qual_disposition": {"type": "object"},
+        "score_items_total": {"type": "integer"},
+        "score_unmapped": {"type": "array", "items": {"type": "string"}},
+        "score_detail_rows": {"type": "integer"},
+        "score_detail_verifiable": {"type": "boolean"},
+        "cross_fatal_total": {"type": "integer"},
+        "cross_fatal_no_card": {"type": "array", "items": {"type": "string"}},
+        "orphan_cards": {"type": "array", "items": {"type": "string"}},
+        "business_forms_total": {"type": "integer"},
+        "business_forms_missing": {"type": "array", "items": {"type": "string"}},
+        "form_fields_missing": {"type": "array", "items": {"type": "string"}},
+        "page_limit_stated": {"type": "boolean"},
+        "insufficient": {"type": "array", "items": {"type": "string"}},
+        "needs_original": {"type": "array", "items": {"type": "string"}},
+        "needs_original_business": {"type": "array", "items": {"type": "string"}},
+        "g_flags": {"type": "integer"},
+        "f_status": {"type": "string", "enum": ["fact_missing", "expired", "expiring_soon", "stated"]}
+      }
+    },
+    "g3_disposition": {"type": "string"},
+    "waste": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["clause_id", "status", "disposition"],
+        "properties": {
+          "clause_id": {"type": "string"},
+          "item": {"type": "string"},
+          "status": {"type": "string", "enum": ["covered", "no_card"]},
+          "disposition": {"type": "string", "enum": ["已响应(就绪)", "响应不足(待澄清)", "响应不足(缺事实库)", "响应不足(其他)", "未响应"]},
+          "cards": {"type": "array", "items": {"type": "string"}},
+          "needs_original": {"type": "boolean"},
+          "consequence": {"type": "string"}
+        }
+      }
+    },
+    "qualification": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["clause_id", "status", "disposition"],
+        "properties": {
+          "clause_id": {"type": "string"},
+          "item": {"type": "string"},
+          "status": {"type": "string", "enum": ["covered", "no_card"]},
+          "disposition": {"type": "string", "enum": ["已响应(就绪)", "响应不足(待澄清)", "响应不足(缺事实库)", "响应不足(其他)", "未响应"]},
+          "cards": {"type": "array", "items": {"type": "string"}},
+          "needs_original": {"type": "boolean"},
+          "consequence": {"type": "string"}
+        }
+      }
+    },
+    "scoring": {
+      "type": "object",
+      "properties": {
+        "items": {"type": "array", "items": {
+          "type": "object",
+          "properties": {
+            "id": {"type": "string"},
+            "covered": {"type": "boolean"},
+            "cards": {"type": "array", "items": {"type": "string"}}
+          }
+        }},
+        "detail_rows": {"type": "array", "items": {"type": "string"}},
+        "detail_verifiable": {"type": "boolean"},
+        "unmapped": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "cross_fatal": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "clause_id": {"type": "string"},
+          "category": {"type": "string"},
+          "item": {"type": "string"},
+          "consequence": {"type": "string"},
+          "cards": {"type": "array", "items": {"type": "string"}},
+          "status": {"type": "string", "enum": ["covered", "no_card"]}
+        }
+      }
+    },
+    "orphan_cards": {"type": "array", "items": {"type": "string"}},
+    "business_forms": {
+      "type": "object",
+      "properties": {
+        "total": {"type": "integer"},
+        "missing": {"type": "array", "items": {"type": "string"}},
+        "covered": {"type": "integer"}
+      }
+    },
+    "form_fields": {
+      "type": "object",
+      "properties": {
+        "present": {"type": "object"},
+        "missing": {"type": "array", "items": {"type": "string"}},
+        "page_limit_stated": {"type": "boolean"}
+      }
+    },
+    "g_suspicion": {"type": "array", "items": {"type": "string"}},
+    "f_qual_timing": {
+      "type": "object",
+      "properties": {
+        "status": {"type": "string", "enum": ["fact_missing", "expired", "expiring_soon", "stated"]},
+        "required_facts": {"type": "array", "items": {"type": "string"}},
+        "deadline": {"type": ["string", "null"]},
+        "detail": {"type": "string"}
+      }
+    }
+  }
+}

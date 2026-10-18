@@ -1,0 +1,54 @@
+schema_version: "0.1"
+qualifications:
+  - id: qual-001
+    name: 电力工程施工总承包贰级
+    cert_no: "D3SAMPLE0001"
+    issuer: 样例省住房和城乡建设厅
+    valid_to: "2027-06-30"
+    evidence_ref: ev-001
+    source: 证书原件
+    updated_at: "2026-10-01"
+    owner: 张工
+    is_decisive: true
+performances:
+  - id: perf-001
+    project: 样例 50MW 风电项目升压站建安工程
+    amount: 6800
+    unit: 万元
+    contract_no: "HT-SAMPLE-2023-08"
+    completed_on: "2024-11-30"
+    evidence_ref: ev-005
+    source: 合同原件＋竣工验收证明
+    updated_at: "2026-09-20"
+    owner: 张工
+    is_decisive: true
+personnel:
+  - id: pers-001
+    name: 李工
+    cert: 一级建造师（机电工程）
+    cert_no: "SAMPLE-JZ-0001"
+    valid_to: "2027-03-15"
+    evidence_ref: ev-011
+    source: 注册证书原件
+    updated_at: "2026-09-20"
+    owner: 张工
+    is_decisive: true
+equipment:
+  - id: eq-001
+    name: 汽车起重机
+    model: "50t"
+    qty: 2
+    owned: true
+    source: 设备台账＋购置发票
+    updated_at: "2026-08-01"
+    owner: 王工
+    is_decisive: false
+financials:
+  - id: fin-2025
+    year: 2025
+    revenue: 38600
+    unit: 万元
+    source: 2025 年度审计报告
+    updated_at: "2026-05-10"
+    owner: 财务部
+    is_decisive: false

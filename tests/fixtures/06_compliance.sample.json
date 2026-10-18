@@ -1,0 +1,69 @@
+{
+  "schema_version": "0.1",
+  "mode": "A",
+  "generated_from": {
+    "01_contract_schema_version": "0.4",
+    "03_schema_version": "0.2",
+    "entry_stage": "plan_confirmed",
+    "entry_ok": true,
+    "version_ok": true,
+    "plan_ok": true,
+    "deadline": "2025-06-17T10:00:00+08:00"
+  },
+  "summary": {
+    "entry_stage": "plan_confirmed",
+    "entry_ok": true,
+    "version_ok": true,
+    "plan_ok": true,
+    "waste_total": 0,
+    "waste_unmapped": [],
+    "waste_disposition": {},
+    "qual_total": 0,
+    "qual_unmapped": [],
+    "qual_disposition": {},
+    "score_items_total": 0,
+    "score_unmapped": [],
+    "score_detail_rows": 0,
+    "score_detail_verifiable": false,
+    "cross_fatal_total": 0,
+    "cross_fatal_no_card": [],
+    "orphan_cards": [],
+    "business_forms_total": 0,
+    "business_forms_missing": [],
+    "form_fields_missing": [],
+    "page_limit_stated": false,
+    "insufficient": [],
+    "needs_original": [],
+    "needs_original_business": [],
+    "g_flags": 0,
+    "f_status": "fact_missing"
+  },
+  "g3_disposition": "pending_human",
+  "waste": [],
+  "qualification": [],
+  "scoring": {
+    "items": [],
+    "detail_rows": [],
+    "detail_verifiable": false,
+    "unmapped": []
+  },
+  "cross_fatal": [],
+  "orphan_cards": [],
+  "business_forms": {
+    "total": 0,
+    "missing": [],
+    "covered": 0
+  },
+  "form_fields": {
+    "present": {},
+    "missing": [],
+    "page_limit_stated": false
+  },
+  "g_suspicion": [],
+  "f_qual_timing": {
+    "status": "fact_missing",
+    "required_facts": [],
+    "deadline": null,
+    "detail": "fixture 示例实例：仅用于 compliance-report.schema.json 契约校验，非任何项目真实结论"
+  }
+}

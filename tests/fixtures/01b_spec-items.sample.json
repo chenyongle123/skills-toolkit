@@ -1,0 +1,18 @@
+{
+  "schema_version": "0.1",
+  "source": {"file": "样例招标文件.pdf", "page_range": "P88-P96"},
+  "items": [
+    {
+      "id": "sp-001", "clause": "技术规范 4.2.1", "page": "P88",
+      "requirement": "额定电流", "required_value": "≥1250", "unit": "A",
+      "tolerance": "", "no_negative_allowed": true,
+      "raw_text": "4.2.1 额定电流应不小于 1250 A，不允许负偏离。"
+    },
+    {
+      "id": "sp-002", "clause": "技术规范 4.2.2", "page": "P89",
+      "requirement": "防护等级", "required_value": "IP54", "unit": "",
+      "tolerance": "", "no_negative_allowed": false,
+      "raw_text": "4.2.2 户外柜体防护等级不低于 IP54。"
+    }
+  ]
+}
