@@ -1,12 +1,12 @@
 ---
 name: bid-compliance-check
-version: 0.2.2
+version: 0.3.0
 description: 投标响应合规自检（两段式）。②-A 查任务卡与目录骨架是否覆盖全部废标项、资格项、评分点与商务表格；②-B 查成稿正文是否真的逐条响应、偏离表是否齐全、跨章数字与名称是否一致、形式要求与页数是否满足、资质证书是否过期、是否存在雷同信号。当用户说"检查废标项""做响应偏离表""形式核对""看看有没有漏响应""资质过期检查""成稿终检""雷同自查"时使用。本技能只报事实态（已响应/响应不足/未响应），不改写内容，不判定是否废标。
 ---
 
 # 投标合规自检（套件第 ② 环）
 
-> **技能版本：v0.2.2（阶段 1 落地，2026-10-18；0.1.1 改 description 去「投标文件」裸词，0.2.0 落地 ②-A 覆盖检查，0.2.1 修三处 X 审硬伤：F 类改读结构化 02_facts.yaml、未响应 status→no_card、disposition 三态统一，**0.2.2 新增 M8 商务表专项检查 `scripts/check_business.py`（§11.2 验收 #9 零金额拦截；`06_compliance/business-check.md` 落点移交本脚本唯一写入）**）**
+> **技能版本：v0.3.0（2026-10-18；0.2.2 新增 M8 商务表专项检查 `scripts/check_business.py`，0.2.1 修三处 X 审硬伤：F 类改读结构化 02_facts.yaml、未响应 status→no_card、disposition 三态统一，0.2.0 落地 ②-A 覆盖检查，0.1.1 改 description 去「投标文件」裸词。**v0.3.0 补齐 `references/` 七件（计划书 §3.5「接管」必建项）：判词库-投标侧（派生自 ⓪ v1.5.0）、废标项比对方法、响应偏离表模板、形式核对清单、暗标匿名检查、雷同自查清单、资质时效核查**）**
 > 本版能力范围见 §七。**②-A 已实装**：读 ⓪/① 产物做废标项/资格项/评分点/商务表的覆盖闭合检查，输出 `06_compliance/`；②-B（成稿后响应检查）仍属阶段 2，未实装。
 > 受套件总则（8 条铁律）约束；流水线状态机见 `references/流水线交接约定.md`。
 
@@ -58,6 +58,17 @@ description: 投标响应合规自检（两段式）。②-A 查任务卡与目�
 
 **F 类资质时效四态不得混报**：`fact_missing`（事实库缺项，资料缺口，非废标）、`expired`（红色，废标风险）、`expiring_soon`（黄色，换证窗口）、`stated`（已载明且在有效期内）。**状态错了，动作就全错。**
 
+**检查类操作细则（v0.3.0 补齐，计划书 §3.5「接管」必建项）**：
+
+| 检查类 | 操作细则 |
+|---|---|
+| A 废标项 | `references/废标项比对方法.md` |
+| B 响应偏离表 | `references/响应偏离表模板.md` |
+| C 形式与一致性 | `references/形式核对清单.md`（暗标终检展开 `references/暗标匿名检查.md`） |
+| E 雷同自查 | `references/雷同自查清单.md` |
+| F 资质时效 | `references/资质时效核查.md` |
+| 漏响应扫描 | `references/判词库-投标侧.md`（派生自 ⓪ 判词库.md v1.5.0，扫描前必读） |
+
 **时间基准**：资格/业绩"近三年"等区间一律取 `00_metadata.deadline`，不以系统日期推算。
 
 ## 四、铁律（八条，与 ①③④ 逐字一致）
@@ -105,8 +116,10 @@ description: 投标响应合规自检（两段式）。②-A 查任务卡与目�
 | ②-A · M8 商务表框架检查 | ✅ v0.2.2（`scripts/check_business.py`：零金额拦截（数字+单位／货币符号／中文大写／千分位四类形态，命中即阻断并以退出码 1 报出）、`required_fields` 与 `seal` 齐备、`chapter_id` 解析到 `01c`、`consistency_rules` 三条硬性规则覆盖） |
 | ②-A · F 资质时效 | ✅ v0.2.1（优先解析结构化 `02_facts.yaml/.json` 的 `valid_to`，退化扫描 `02_facts.md`；三态 expired/expiring_soon/stated/fact_missing，时间基准取 `00_metadata.deadline`） |
 | ②-A · C 形式字段齐备 | ⚠️ 部分（binding/seal 齐备性 ✅；bid_mode 传递/页数预算以信息态报出；页数上限未载明须回①确认或估算并写明依据） |
-| ②-A · B 响应偏离表 | ⚠️ 部分（bf-05/bf-19 偏离函框架在/缺判定 ✅；逐行 vs `01b` 一致性待 01b 齐备后重跑） |
-| ②-B 响应检查（成稿后逐条响应、三态判定、跨章一致性、雷同自查） | ⏳ **阶段 2 交付**（脚本 `--mode B` 仅占位） |
+| ②-A · B 响应偏离表 | ⚠️ 部分（bf-05/bf-19 偏离函框架在/缺判定 ✅；逐行 vs `01b` 一致性待 01b 齐备后重跑；填法细则见 `references/响应偏离表模板.md`） |
+| ②-B 响应检查（成稿后逐条响应、三态判定、跨章一致性、雷同自查） | ⏳ **阶段 2 交付**（脚本 `--mode B` 仅占位；操作细则已备：`references/判词库-投标侧.md`、`references/形式核对清单.md`、`references/暗标匿名检查.md`、`references/雷同自查清单.md`） |
+| ②-B · 跨章一致性（`scripts/check_consistency.py`，全套件唯一实现） | ⚠️ v0.3.0 骨架版（名称/编号精确基准比对全自动；金额/日期/工期为信号扫描待人工甄别；① ③ ④ 不复制，v0.9 已删 ③ 副本） |
+| 检查类操作细则（references 七件，计划书 §3.5 接管必建项） | ✅ v0.3.0（判词库-投标侧/废标项比对方法/响应偏离表模板/形式核对清单/暗标匿名检查/雷同自查清单/资质时效核查） |
 
 > ②-A 运行：`python scripts/check_compliance.py --bid <项目/bid目录>`（**要求 Python ≥ 3.12**），读取 `01/03/03c/01c/00_metadata.json`，**F 类优先读结构化 `02_facts.yaml`（无则 `02_facts.json`，再退化扫描 `02_facts.md`）**，
 > 输出 `06_compliance/{compliance-report,form-check,deviation-table}.md` + `compliance-report.json`
