@@ -66,7 +66,7 @@ SCHEMAS = {
 # schema 文件 → (fixture, 是否用 mini_schema 校验)
 FIXTURE_MAP = {
     "metadata.schema.json": ["00_metadata.min.json", "00_metadata.full.json"],
-    "tender-facts.schema.json": ["01_tender-facts.sample.json"],
+    "tender-facts.schema.json": ["01_tender-facts.sample.json", "01_tender-facts.weighted.sample.json"],
     "spec-items.schema.json": ["01b_spec-items.sample.json"],
     "format-outline.schema.json": ["01c_format-outline.sample.json"],
     "bid-plan.schema.json": ["03_bid-plan.sample.json"],

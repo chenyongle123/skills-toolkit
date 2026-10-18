@@ -4,6 +4,48 @@
 
 Tag 约定：技能版本 tag 为 `技能名/vX.Y.Z`；仓库级变更 tag 为 `repo/vX.Y.Z`。
 
+## [tender-document-review/v1.5.0] - 2026-10-18
+
+> ⓪ 加权型评分闭合验算（阶段 1 验收 #0 根因修复）：schema 三字段 + `emit_facts.py` 双口径。`schema_version`/`contract_schema_version` 保持 `0.4`（可选字段追加，同 v1.3.1 先例）。
+
+### Added
+
+- **`tender-facts.schema.json` 三字段（双副本字节一致）**：
+  - `scoring.total_stated`（number）：招标文件明示总分，人工转录；
+  - `scoring.weight_basis`（string）：加权口径原文依据摘录；
+  - `scoring.items[].weight`（number）：条目权重（10% 录 `0.1`），仅加权型评分填。
+  均标"v1.5.0 delta 新增，已回填计划书"，不进 `required`；`emit_facts.py` 校验形态兼容（加权型样本 `01_tender-facts.weighted.sample.json` 注册入 `FIXTURE_MAP`，过 C5）。
+- **`emit_facts.py` 加权闭合口径**：任一条目带 `weight` 即按 Σ(分值×权重)＝明示总分验算，否则维持直接相加口径 Σ分值＝总分；两条口径均未录总分时告警"未经闭合验算，不得静默采用"；期望值解析链 `--expected-total`（人工录入，优先）→ 回退 `scoring.total_stated`（产物记录值，告警注明"未经人工复核"）；加权口径下 `weight_basis` 缺失或仅部分条目带 `weight` 均告警（权重不可追溯即不可信）；差异告警点名 `10% 录为 10 而非 0.1` 成因。
+
+### Fixed
+
+- `emit_facts.py` 直接相加分支提示语中 `10%＋` 等三处 `%` 未转义导致格式化崩溃（rc=1 traceback）——阶段 1 回归 R1-11 实测捕获，已转义 `%%`。
+
+### Tests
+
+- **`tests/test_stage1_regression.py` R1（12 项）**：加权口径闭合／差异-10／回退 total_stated／回退值注明来源／百分比误录点名／覆盖不全／缺 weight_basis／未录总分；直接相加口径四项回归（未录告警、30 闭合、差异-70、回退闭合）无回归。
+- ⓪ `SKILL.md` 同步：frontmatter 1.5.0、第 5 步 D5 段重写为"两种评分口径"、10.2 JSON 示例与字段表补 3 行；计划书 §6.2 回填 delta（照 `price_cap_form` 先例）。
+
+## [bid-response-plan/v0.3.0] - 2026-10-18
+
+> ① 01c 章节树保真（阶段 1 验收 #2 根因修复）：技术标编号连续化重排 6 处 + 章节名删括号说明 3 处，改为按原文档真实序列固化 + 新增机检。
+
+### Fixed
+
+- **`build_bid_plan.py` `FORMAT_CHAPTERS` 技术标编号重排 6 处**：n-2103→"7"、n-2104→"8"、n-2105→"9"、n-2106→"10"、n-2107→"11"、n-2108→"12"（深州原文档技术标编号自身即 1、2、7–12，"连续化"是转抄人造缺陷，验收记录 #2）。
+- **章节名删括号说明 3 处**：恢复 n-2102「项目实施方案（由投标人自行编制）」、n-1131「施工分包情况表（适用于投标人不具备招标文件所要求的施工资质的情况）」、n-1132「设计分包情况表（适用于投标人不具备招标文件所要求的设计资质的情况）」。
+- 同步更新全部引用点：TASKS（c-0012、bf-12、bf-13）、SCORING_DETAIL 16 行"项目实施方案"→全称、BUSINESS_FORMS bf-12/bf-13 第三列章名；模块 docstring 增补 🔴 保真规则三条（编号不拉直／括号不删／换项目必跑机检）。
+
+### Added
+
+- **`scripts/verify_format_chapters.py`（新建，保真机检）**：`--01c <01c_format-outline.json> --headings <第七章标题抽取.json>`，编号＋章节名与原文逐字比对；问题四分类——编号不存在（疑似连续化重排，附原文编号序列）／编号存在但名不符（改写或括号说明被删，附原文候选）／原文未收录／01c 内重复；rc 0/1/2；只报告差异，不自动修改。
+- **`tests/fixtures/07_format_headings.shenzhou.json`（新建，42 节点）**：由深州第七章 P5398–P6161 逐行抽取并与原文交叉核对生成，技术标编号序列 `二、1、2、7、8、9、10、11、12` 如实记录，防 fixture 自身抄错。
+
+### Tests
+
+- **`tests/test_stage1_regression.py` R2（4 项）**：build_bid_plan 端到端生成（CID 全部可解析）→ verify 42 节点全过；负例一（历史缺陷形态 7→3＋删括号）检出"章节名不符＋括号说明被删＋原文节点未收录"；负例二（12→13 不存在编号）检出"疑似连续化重排＋原文编号序列"。
+- ① `SKILL.md` 同步：frontmatter 0.3.0、主流程第 3 步卡点列扩为四项保真要求、§七 表更新 01c 行并新增机检行、尾部生成说明补机检命令与深州案例。
+
 ## [repo/v1.4.2] - 2026-10-18
 
 > 新增 `docs/v0.16_阶段1验收记录.md`（计划书 §11.2 阶段 1 合并验收正式记录，真实招标文件端到端实测），并追加换模型交叉验证（X 层）附录与内部一致性修订；无技能能力变更。
