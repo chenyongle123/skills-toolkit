@@ -1,0 +1,9 @@
+Skills Toolkit
+Copyright (c) 2026 chenyongle123
+
+本仓库（skills-toolkit）以 CC BY-NC 4.0（知识共享署名—非商业性使用 4.0 国际许可协议）发布。
+各技能（skills/*）的 SKILL.md 及配套脚本、schema、references 均按上述许可提供；
+使用、修改、分发须遵守「署名」与「非商业性使用」条款。详见 LICENSE 文件。
+
+非软件资产（如第三方招标文件样例）的版权归各自权利人所有，本仓库仅作格式示范，
+不主张其许可，使用方须自行取得权利人授权。

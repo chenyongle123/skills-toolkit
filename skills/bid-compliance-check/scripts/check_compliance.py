@@ -261,7 +261,7 @@ def qual_timing(structured_facts, facts_text, deadline_date):
                 elif v <= deadline_date + _dt.timedelta(days=180):
                     if worst != "expired":
                         worst = "expiring_soon"
-                    details.append(f"{cid} valid_to={vt} 落入换证窗口(截止前180天内)")
+                    details.append(f"{cid} valid_to={vt} 落入换证窗口(截止后180天内)")
                 else:
                     details.append(f"{cid} valid_to={vt} 有效")
             return worst, "；".join(details) if details else "未解析到有效日期"
@@ -285,7 +285,7 @@ def qual_timing(structured_facts, facts_text, deadline_date):
         elif v <= deadline_date + _dt.timedelta(days=180):
             if worst != "expired":
                 worst = "expiring_soon"
-            details.append(f"{cv} 落入换证窗口(截止前180天内)")
+            details.append(f"{cv} 落入换证窗口(截止后180天内)")
         else:
             details.append(f"{cv} 有效")
     return worst, "；".join(details) if details else "未解析到有效日期"
