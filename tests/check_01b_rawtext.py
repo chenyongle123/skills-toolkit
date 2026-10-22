@@ -127,9 +127,9 @@ def main():
     n_ch5 = sum(1 for it in psi.SPEC_ITEMS if it["clause"].startswith("第五章"))
     n_quant = sum(1 for it in psi.SPEC_ITEMS[2:]
                   if re.search(r"[<>≥≤]", it["required_value"]) and it["unit"])
-    print(f"条目总数 {len(psi.SPEC_ITEMS)}（第五章已全量 {n_ch5} 行：2.性能指标14＋3.勘察设计69"
-          f"＋5.调试验收5＋6.施工工期16＋8.竣工试验与验收131；挂起 1/4/7/9 节，"
-          f"其中带比较符可量化 {n_quant}）")
+    print(f"条目总数 {len(psi.SPEC_ITEMS)}（第五章计 {n_ch5} 行：已全量 9 节 1–9 全覆盖——1.总则101＋2.性能指标14＋3.勘察设计69"
+          f"＋4.施工安装571（sp-339–909）＋5.调试验收5＋6.施工工期16＋7.施工质量279（sp-910–1188，7.1–7.4）"
+          f"＋8.竣工试验与验收131＋9.工程管理78（sp-1189–1266，9.1–9.6）；挂起 0 节；可量化 {n_quant}）")
     if fails:
         print("FAIL")
         for f in fails:

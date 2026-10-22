@@ -1,13 +1,12 @@
 ---
 name: bid-docx-export
-version: 0.1.1
+version: 0.2.2
 description: 投标材料排版与导出。按招标要求的排版参数生成样式档并导出 Word/docx，装配证明材料扫描件为合订 PDF，清理文档元数据并做雷同自查回扫，输出排版依据说明。当用户说"导出 Word""排版""按招标格式调版式""把成稿装订成 PDF""清掉文档属性""页数超限检查"时使用。**须已有成稿**；用户问"投标文件格式章有什么要求""格式怎么规定的"属招标文件解读（tender-document-review），本技能不做解读。本技能不改内容、不判定合规；未过成稿终检（G5）拒绝导出。
 ---
 
 # 投标文件排版导出（套件第 ④ 环）
 
-> **技能版本：v0.1.1（阶段 0 骨架版，2026-10-17；0.1.1 仅改 description：去「投标文件」「标书」裸词＋加「须已有成稿／格式章解读不属本技能」排他边界，实测修与 ⓪ 双命中）**
-> 本版能力范围见 §七。骨架版**不导出文档**，只做入口校验、状态读写与缺件指路；样式档、证据装配、元数据清理随阶段 3 交付。
+> **技能版本：v0.2.2（2026-10-21；专家复核批次 1–4 修复）：入口闸门强化（②-A `f_qual_timing` expired 联动**阻断**〔读新契约 dict/list 双形态，解析失败即阻断〕＋缺章〔01c 节点 vs 05_chapters〕＋`status≠final` 章＋`style_source` 缺失 warn/不一致 fail＋F12 skills-lock 运行时自检 warn）；F4 页码四档实装（none/header_center/footer_center/footer_outer，docx 部件动态组装）；F2 `[[EV:]]` 替换收敛循环（≤3 轮，pagination 记 `ev_converged`）；F7 暗标 PDF 文本层扫描（`_common.pdf_identity_hits`，verify/scrub 共用）；F1 标题剥离 docx/PDF 口径统一；F14 中英文空格检查反转对齐计划书 §8.7 规则 2（扫误加空格，信息态）；F5 字体白名单外照录＋警告；D3 `style_source` 写回闭环；D4 证据 `valid_to` 空值警告；F16b 基线单源（`BASELINE` 载自 `通用中文基线.yaml`，缺失即阻断）；F10 附件引用去空格口径「见附件A-xx」。v0.2.1：补齐 `references/样式与编号规范.md` 与 `references/雷同与元数据清理.md`。v0.2.0（阶段 3 实装版）：完整导出链七脚本落地——三档样式档→证据索引→五项证据检查→合订 PDF 装配→docx 生成→元数据清理→回读校验（通过才写 exported）；雷同自查机检按计划书修订取消（转人工＋清单）。v0.1.1（2026-10-17）为骨架版。**
 > 受套件总则（8 条铁律）约束；流水线状态机见 `references/流水线交接约定.md`。
 
 ## 一、定位与边界
@@ -23,23 +22,34 @@ description: 投标材料排版与导出。按招标要求的排版参数生成�
 
 **排版三档优先级**（不得颠倒）：① 招标明示（`01c.typography`）→ ② 甲方模板（`client_template`）→ ③ 通用中文基线（**仿宋、正文小四、1.5 倍行距、首行缩进 2 字符**）。选档结果写入 `排版依据说明.md`，无招标要求时须写明"无招标要求，采用基线"。
 
-## 二、入口校验（四步，缺一即拒）
+## 二、入口校验（闸门：`_common.gate`，步 4/5 共用；失败零产物）
 
-1. `00_metadata.json` 存在；`stage` 必须为 **`recheck_confirmed`**。
-2. 前置产物：`05_chapters/*.md`、`01c_format-outline.json`、`06_compliance/`（至少含 `form-check.md`、`consistency-issues.md`——后者由 ②-B 阶段 2 产出，阶段 1 及之前缺失属"未到阶段"，不按缺件拒）、`03b_evidence-index.json`。
-3. **G5 闸门核查**：`06_compliance/` 缺失或 `form-check.md` 存在空项 → 阻断，提示"请先完成成稿终检（G5）"；②-A 结论中未解决的 `expired` 项 → **阻断导出**（④ 不重判时效，仅联动 ②-A 结论）。
-4. `01.contract_schema_version` 等值校验；`source_skill_version` semver 三档。
+1. `00_metadata.json` 存在；`stage` 必须为 **`recheck_confirmed`**（未过成稿终检 G5 拒绝导出）。
+2. 前置产物：`05_chapters/*.md` 有章节文件、`01c_format-outline.json` 在、`06_compliance/form-check.md` 在且**无空项**（值域 `—`/`-`/`无`/空白即算空项）。
+3. `06_compliance/consistency-issues.md` 缺失 → 信息态警告（②-B 产物，旧管线放行但提示）。
+4. ②-A 结论中未解决的 `expired` 项 → **阻断导出**（④ 不重判时效，仅联动其结论；`expiring_soon` 不阻断）。
+5. `style_source` 与 `01c.typography.source` 必须一致；不一致记入 `failed_nodes` 落盘 `00_metadata.json` 并阻断。
+6. 闸门失败时 docx/PDF **一律不生成**（零产物），`failed_nodes` 去重追加落盘。
 
-## 三、主流程（阶段 3 实现）
+## 三、导出链（七脚本按序执行，统一 `--bid <bid目录>`）
 
-| 步 | 动作 | 产出 | 卡点 |
+| 序 | 脚本 | 产出 | rc 语义 |
 |---|---|---|---|
-| 1 | 判定排版依据档位，生成/套用样式档 | `README`／`style-profile` | 三档优先级不得颠倒 |
-| 2 | 生成 docx（章名、序号、页眉页脚、页码） | 正文 docx | 章名逐字取 `01c` |
-| 3 | 证据索引与装配（命名/顺序/页码范围/盖章位） | `03b` → 合订 PDF | 总页数 = 正文 + 证据；不得超 `page_limit` |
-| 4 | 元数据清理（普通标 / 暗标两套字段） | 清洁 docx | 暗标另清页眉页脚标识 |
-| 5 | 回读校验（页数、页码、中英文空格、残留属性） | 校验报告 | 残留即报错，不静默放行 |
-| 6 | 雷同自查回扫 + 输出《排版依据说明》 | `07_out/` | 不得出现"是否串标"定性结论 |
+| 1 | `scripts/build_style_profile.py` | `07_out/style-profile.yaml`＋`排版依据说明.md` | 0 生成；2 前置缺失 |
+| 2 | `scripts/index_evidence.py` | `03b_evidence-index.json` | 0 生成；2 `evidence/` 缺失或空 |
+| 3 | `scripts/check_evidence.py` | `06_compliance/evidence-check.md` | 0 无错误项；1 有错误项（装配前须闭环）；2 缺 `03b` |
+| 4 | `scripts/assemble_pdf.py` | `07_out/投标文件_含附件.pdf`＋`pagination.json` | 0 生成；1 装配错误/超出页数上限；2 前置缺失/闸门阻断 |
+| 5 | `scripts/export_docx.py` | `07_out/投标文件.docx` | 0 生成；1 错误；2 前置缺失/闸门阻断（零产物） |
+| 6 | `scripts/scrub_metadata.py` | 清洁 docx＋PDF | 0 清洁；1 须人工处置（修订记录/暗标标识命中）；2 缺 docx |
+| 7 | `scripts/verify_docx.py` | `07_out/verify-report.md`＋`stage=exported` | 0 通过；1 残留/不符；2 前置缺失 |
+
+- **步 1 三档**：招标明示（`01c.typography` 逐项，空值回落基线并在 `sources` 逐项记录）→ 甲方模板（`--template <docx>` 必传，纯标准库解析 docDefaults/sectPr）→ 通用中文基线；暗标叠加层与 `bid_mode=blind` 绑定（`overlay_blind`）；档位/基线参数/编号页码口径详见 `references/样式与编号规范.md`。
+- **步 2 证据索引**：`evidence/` 下 PDF 按实测页数、图片按 1 页计；附件号 `A-NN`（文件名前缀优先，无前缀按序自动补号）；`fact_ref` 只做文件名↔任务卡关键词匹配，匹配不上留空**不猜**（铁律 1：扫描件不作事实来源）。
+- **步 3 五项检查**：缺件（废标级排前）/日期一致性（时效归 ②-A）/页数超限（估算）/文件大小超限/索引自洽；只报事实态（铁律 4）。
+- **步 4 装配**：总页数 = 正文（含目录）＋证据，`pagination.json` 自证（PDF 实测复核）；超 `page_limit` → rc=1（铁律 3）。
+- **步 5 docx 生成**：章名逐字取 `01c`（铁律 2）；`[[EV:]]`→「见附件A-xx（第N–M页）」（页码来自 pagination；附件号与「（」之间不加空格，与 verify 中英文混排不空格口径一致）；`[[F:]]`/`[[S:]]` 溯源标注剔除；页脚 PAGE 域。
+- **步 6 两模式**：`--mode normal|blind`（缺省读 `metadata.bid_mode`）；两种标都清 creator/lastModifiedBy/Company/模板路径/自定义属性/批注；**修订记录（w:ins/w:del）不自动接受**（会改内容），存在即 rc=1；暗标另扫页眉页脚/正文/属性标识串（`--identity "公司名,人名"`），命中报事实态，改内容归 ③；字段级口径与验收对照见 `references/雷同与元数据清理.md`。
+- **步 7 回读校验**：章名逐字/占位符残留/元数据残留/页数闭合（PDF 侧真值复核）/暗标标识；中英文空格为信息态。**全过才写 `stage=exported` 并登记 `skill_versions`**；任何残留即 rc=1，不静默放行。
 
 ## 四、铁律（八条，与 ①②③ 逐字一致）
 
@@ -74,17 +84,21 @@ description: 投标材料排版与导出。按招标要求的排版参数生成�
 
 | 项 | 值 |
 |---|---|
-| 读取 | `01c`（`0.2`）、`03b`（`0.1`）、`06_compliance/*.md` |
-| 产出 | `07_out/{投标文件.docx, 投标文件_含附件.pdf, 排版依据说明.md}` |
+| 读取 | `01c`（`0.2`）、`03_bid-plan`（`0.2`）、`06_compliance/*.md`、`compliance-report.json`（②-A 结论联动） |
+| 产出 | `03b_evidence-index.json`（`0.1`）；`07_out/{style-profile.yaml, 排版依据说明.md, 投标文件_含附件.pdf, pagination.json, 投标文件.docx, verify-report.md}`；`06_compliance/evidence-check.md` |
 | 自检 | 读 `skills-lock.json`，三级降级，不阻断 |
 
-## 七、本版本能力范围（v0.1.1，阶段 0）
+## 七、本版本能力范围（v0.2.2，批次 1–4 修复＋阶段 3 实装）
 
 | 能力 | 状态 |
 |---|---|
-| 入口校验与阻断指路（含 G5 闸门与 `expired` 联动规则） | ✅ 已实现 |
-| 状态读写（`exported`） | ✅ 已实现（待导出实际完成） |
-| 8 条铁律与反例 | ✅ 已落地 |
-| 样式档、docx 生成、证据装配、元数据清理、回读校验 | ⏳ **阶段 3（v0.2.0）交付** |
+| 入口闸门（G5/expired 联动/style_source 一致/failed_nodes 落盘/零产物） | ✅ 已实现 |
+| 三档样式档（招标明示/甲方模板纯标准库解析/通用中文基线）＋排版依据说明 | ✅ 已实现 |
+| 证据索引（实测页数/附件号/fact_ref 关键词匹配不猜）＋五项证据检查 | ✅ 已实现 |
+| 合订 PDF 装配（纯标准库 PDF writer＋对象级合并）＋pagination 自证与 PDF 实测复核 | ✅ 已实现 |
+| docx 生成（章名逐字取 01c、[[EV:]]→页码引用、[[F:]]/[[S:]] 剔除、PAGE 域） | ✅ 已实现 |
+| 元数据清理（普通标/暗标两套；修订记录不自动接受；PDF /Info 清空） | ✅ 已实现 |
+| 回读校验（章名/占位符/元数据/页数闭合/暗标标识）＋`exported` 状态与版本登记 | ✅ 已实现 |
+| 雷同自查机检 | ➖ 已按计划书修订取消（转人工＋清单，G5 环节人工执行；导出侧口径见 `references/雷同与元数据清理.md`） |
 
-> 骨架版正确行为：前置齐备但要求导出时，输出"【能力未实现】导出能力随阶段 3 交付；本版不产出任何 docx/PDF"，**不生成半成品文件**。
+> 运行环境：Python ≥ 3.8，纯标准库零三方依赖（PDF/docx 均自研生成，不依赖 python-docx/reportlab/pypdf）。

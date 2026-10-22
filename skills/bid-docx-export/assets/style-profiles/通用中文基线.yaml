@@ -1,0 +1,20 @@
+# 通用中文基线（排版三档之第③档）
+# 计划书 §8.2：仅当招标文件未提出任何排版要求时生效；不与招标要求取交集折中。
+# 本文件为内置基线，允许整份替换以适配本单位惯例，但不得进入判定逻辑。
+schema_version: "0.1"
+tier: baseline
+typography:
+  font_body: 仿宋_GB2312
+  size_body_pt: 12          # 小四
+  line_spacing: 1.5         # 1.5 倍行距
+  first_line_indent_chars: 2  # 首行缩进 2 字符
+  margins_cm: {top: 2.54, bottom: 2.54, left: 3.17, right: 3.17}
+  page_number: footer_center  # 页码居页脚居中
+  page_limit: null          # 未载明上限；铁律 3 要求按隐含要求估算并写明依据
+  identity_ban: []
+  binding: ""               # 装订要求（基线不预设）
+  seal: ""                  # 盖章要求（基线不预设）
+  indent_note: 首行缩进2字符
+notes:
+  - 基线仅在招标文件（01c.typography）逐项均未载明时整体生效
+  - 招标档存在但个别项空值时，仅该项回落基线，并在《排版依据说明.md》逐项记录

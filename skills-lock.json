@@ -1,21 +1,21 @@
 {
   "kit_version": "kit/v0.2.0-stage1",
-  "generated_at": "2026-10-18T18:22:02+08:00",
+  "generated_at": "2026-10-21T23:55:35+08:00",
   "skills": {
     "tender-document-review": {
-      "version": "1.5.0"
+      "version": "1.5.1"
     },
     "bid-response-plan": {
-      "version": "0.6.0"
+      "version": "0.22.0"
     },
     "bid-compliance-check": {
-      "version": "0.3.2"
+      "version": "0.5.1"
     },
     "bid-technical-proposal": {
-      "version": "0.1.1"
+      "version": "0.3.1"
     },
     "bid-docx-export": {
-      "version": "0.1.1"
+      "version": "0.2.2"
     }
   },
   "schemas": {
@@ -26,14 +26,16 @@
         "bid-compliance-check",
         "bid-technical-proposal",
         "bid-docx-export"
-      ]
+      ],
+      "schema_version": "0.1"
     },
     "tender-facts.schema.json": {
       "hash": "15a549314f56a36fb90e914df601d239d049dec05e49fdc2d7fdbd0e755e01e8",
       "copies": [
         "tender-document-review",
         "bid-response-plan"
-      ]
+      ],
+      "schema_version": "0.4"
     },
     "facts.schema.yaml": {
       "hash": "6dfe3d42a726aa768e184c2405c400d3bd5f5fd4d039c864170771b01ff95bf8",
@@ -41,43 +43,50 @@
         "bid-response-plan",
         "bid-compliance-check",
         "bid-technical-proposal"
-      ]
+      ],
+      "schema_version": "0.1"
     },
     "spec-items.schema.json": {
       "hash": "7239f70330d250f15b922026c303aa778a2ac1a249048502c8dee73a8414e383",
       "copies": [
         "bid-response-plan"
-      ]
+      ],
+      "schema_version": "0.1"
     },
     "format-outline.schema.json": {
       "hash": "1c1e2eece4eb8f70fc1e03d610a84e206e0a543b437e245ac18014a115dafd0e",
       "copies": [
         "bid-response-plan"
-      ]
+      ],
+      "schema_version": "0.2"
     },
     "bid-plan.schema.json": {
       "hash": "70187ac3825229464de3d2478510b605806dcebd0553cc7b32d5390d324d63ec",
       "copies": [
         "bid-response-plan"
-      ]
+      ],
+      "schema_version": "0.2"
     },
     "business-forms.schema.json": {
       "hash": "4d17efa785973e38f1ddc378cd8afb6267922f98a8858b61a0703b16d2fc7417",
       "copies": [
         "bid-response-plan"
-      ]
+      ],
+      "schema_version": "0.1"
     },
     "outline.schema.json": {
       "hash": "4235cff8f9d76e7aad8521739da94d104ab2b53e241822f8ccd0807d8e3479ff",
       "copies": [
         "bid-response-plan"
-      ]
+      ],
+      "schema_version": "0.1"
     },
     "compliance-report.schema.json": {
-      "hash": "14898bc7c6d11e26faa7ded3238eb239ddd88e16aa625f141f00da9408dfa36b",
+      "hash": "7ecbe3c0ada8b4c3993e7a521cef6366d42d069686b5cf71ab1e3c03ed3d747a",
       "copies": [
         "bid-compliance-check"
-      ]
+      ],
+      "schema_version": "0.2"
     }
   },
   "_scope": {
@@ -91,7 +100,8 @@
     ],
     "out_of_scope": {
       "delivery-audit": "通用交付前审查元技能（跨项目共享），不属本套件版本化矩阵",
-      "business-contract-review": "独立商务合同审查领域技能，非投标链路技能"
+      "business-contract-review": "独立商务合同审查领域技能，非投标链路技能",
+      "quantity-takeoff-building": "房建工程量计算执行技能（独立领域，v0.1.0 未定型），非投标链路技能；待路线定型后再评估是否纳入版本化矩阵"
     }
   },
   "_intentional_excludes": {

@@ -25,6 +25,7 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -52,9 +53,17 @@ def check(name: str, ok: bool, detail: str = "") -> None:
     print("%s  %s%s" % ("PASS" if ok else "FAIL", name, ("　— " + detail) if detail and not ok else ""))
 
 
+# 子进程输出钉死 UTF-8（N1 修复）：中文 Windows 默认 GBK 下，
+# 子进程按 locale 写 GBK 而本进程按 encoding="utf-8" 解码会触发读线程
+# UnicodeDecodeError（r.stderr 变 None → TypeError），故以 env 强制子进程
+# PYTHONUTF8=1，errors="replace" 兜底防崩溃。无需宿主预设 PYTHONUTF8。
+_ENV_UTF8 = dict(os.environ, PYTHONUTF8="1")
+
+
 def run(args: list[str]) -> subprocess.CompletedProcess:
     return subprocess.run([PY] + [str(a) for a in args],
-                          capture_output=True, text=True, encoding="utf-8")
+                          capture_output=True, text=True,
+                          encoding="utf-8", errors="replace", env=_ENV_UTF8)
 
 
 # ---------- R1：D5 加权闭合口径 ----------
@@ -262,11 +271,12 @@ def r3_consistency(tmp: Path) -> None:
     r = run([CONSIST, "--bid", bid])
     rep = (bid / "06_compliance" / "consistency-issues.md").read_text(encoding="utf-8") \
         if (bid / "06_compliance" / "consistency-issues.md").is_file() else ""
-    check("R3-1 跨章一致性：变体/异值检出且 purchaser 与年份不误报",
-          r.returncode == 0 and "ZB-DEMO-2026-002" in rep
+    check("R3-1 跨章一致性：变体/异值检出且 purchaser 与年份不误报（v0.4.0 起变体/异值升 ⚠️ 级）",
+          r.returncode == 1 and "ZB-DEMO-2026-002" in rep
           and "风电工程EPC总承包" in rep
           and "新能源有限公司" not in rep.split("疑似变体")[-1].split("\n")[0]
-          and "`2026`" not in rep and "`2027`" not in rep,
+          and "`2026`" not in rep and "`2027`" not in rep
+          and "名称变体 1、编号异值 1、工期组 0、金额组 0" in r.stdout,
           "rc=%d stdout=%s" % (r.returncode, r.stdout[:300]))
 
     # 负例一：stage 非 writing → 拒跑（②-B 前置）

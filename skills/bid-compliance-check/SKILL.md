@@ -1,13 +1,13 @@
 ---
 name: bid-compliance-check
-version: 0.3.2
+version: 0.5.1
 description: 投标响应合规自检（两段式）。②-A 查任务卡与目录骨架是否覆盖全部废标项、资格项、评分点与商务表格；②-B 查成稿正文是否真的逐条响应、偏离表是否齐全、跨章数字与名称是否一致、形式要求与页数是否满足、资质证书是否过期、是否存在雷同信号。当用户说"检查废标项""做响应偏离表""形式核对""看看有没有漏响应""资质过期检查""成稿终检""雷同自查"时使用。本技能只报事实态（已响应/响应不足/未响应），不改写内容，不判定是否废标。
 ---
 
 # 投标合规自检（套件第 ② 环）
 
-> **技能版本：v0.3.2（2026-10-18；0.2.2 新增 M8 商务表专项检查 `scripts/check_business.py`，0.2.1 修三处 X 审硬伤：F 类改读结构化 02_facts.yaml、未响应 status→no_card、disposition 三态统一，0.2.0 落地 ②-A 覆盖检查，0.1.1 改 description 去「投标文件」裸词。v0.3.0 补齐 `references/` 七件（计划书 §3.5「接管」必建项）：判词库-投标侧（派生自 ⓪ v1.5.0）、废标项比对方法、响应偏离表模板、形式核对清单、暗标匿名检查、雷同自查清单、资质时效核查。v0.3.1 偏离表口径文案随 ① v0.5.0 同步：01b 基线 106 条、第五章已全量 4 节（2/3/5/6）、挂起 4/7/8/9 节。**v0.3.2 偏离表口径改从 01b JSON 动态派生**（`summarize_01b()` 按 clause「第五章<节号>」分组计数，根治①每全量一批本口令行必漂移的顽疾；节号→节名表仅列结构不列计数））**
-> 本版能力范围见 §七。**②-A 已实装**：读 ⓪/① 产物做废标项/资格项/评分点/商务表的覆盖闭合检查，输出 `06_compliance/`；②-B（成稿后响应检查）仍属阶段 2，未实装。
+> **技能版本：v0.5.1（2026-10-21；专家复核批次 1–4 修复：C4 关键日期槽〔截止/开标/递交/有效期同槽多值 ⚠️ 抬 rc〕＋C1 金额同值异形死条件修复〔全部写法可归一且归一同值才放行〕＋C5 `qual_timing` 三元组契约〔`f_qual_timing = {status, items, required_facts, deadline, detail}`，④ gate 联动阻断〕＋C6 draft 章警告〔②-B 不阻断/④ 硬阻断〕＋C12 前置缺章阻断〔04_outline vs 05_chapters，rc=2〕＋C8 `check_business --mode B` 行内大小写金额等值核对）。0.5.0（阶段 5：新增 `SKILL.lite.md` L0 纯对话版轻量提示词——A 段覆盖走查／F 类资质时效三态走查／B 段成稿响应走查，每步【能力依赖：L2】+降级指令、铁律自包含、R7 状态快照；与主文件铁律逐字一致由 `validate_contract` C13 机检；计划书 §9／§11.6）。0.4.0（2026-10-20；②-B 成稿响应检查实装，阶段 2 第二步交付）。`check_compliance.py --mode B`**：入口校验（stage=writing → 执行中写回 rechecking，缺件阻断零产物）→ A-lite 任务卡成稿三态（已响应/响应不足〔残留【待填/待确认】给位置〕/未响应/证据类）→ B 偏离表逐行（人工填写落点 `08_business/deviation-table.md` × `01b` 主键对行：跳条/多行/重行/照抄〔F3〕/空白判定/负偏离废标级单列/出处断链）→ F 类复述 ②-A 结论（不重判）→ G5 指引（不自动写 recheck_confirmed）；退出码 0/1/2。**`check_consistency.py` v0.4.0**（跨章一致性全套件唯一实现）：位置粒度「章节（number title，id）· 第 N 段 · L 行：原文片段」、工期/金额同语义多值检测（组内 ≥2 值即 ⚠️）、中文大写金额归一（同值异形如 5000万元 vs 人民币伍仟万元整只记 ℹ️ 不误报）、日期先剔除防「12月」误判工期。v0.3.3 `compliance-report.schema.json` 声明 `const schema_version="0.2"`；**v0.3.2 偏离表口径改从 01b JSON 动态派生**（根治①每全量一批口令行必漂移）；v0.3.1 偏离表口径随 ① v0.5.0 同步；0.3.0 补齐 `references/` 七件；0.2.2 M8 `check_business.py`；0.2.1/0.2.2 修 X 审三硬伤；0.2.0 落地 ②-A 覆盖检查。**
+> 本版能力范围见 §七。**②-A 已实装**（读 ⓪/① 产物做覆盖闭合检查，输出 `06_compliance/`）；**②-B 已实装 v0.4.0**（成稿后响应检查：A-lite/B/F 三类机检 + C 类跨章一致性经 `check_consistency.py`；E 雷同自查与暗标终检仍属 G5 人工项）。
 > 受套件总则（8 条铁律）约束；流水线状态机见 `references/流水线交接约定.md`。
 
 ## 一、定位与边界
@@ -100,31 +100,43 @@ description: 投标响应合规自检（两段式）。②-A 查任务卡与目�
 | 项 | 值 |
 |---|---|
 | 读取 `01` / `01b` / `01c` / `03` / `04` | `01` 为 `contract_schema_version = "0.4"`；其余 `schema_version` 见各 schema |
-| 产出 | ②-A（阶段 1 已实产）：`06_compliance/{compliance-report.md, compliance-report.json, form-check.md, business-check.md, deviation-table.md}`；②-B（阶段 2 规划，**未实产**）：`consistency-issues.md`、`similarity-check.md` |
+| 产出 | ②-A（阶段 1 已实产）：`06_compliance/{compliance-report.md, compliance-report.json, form-check.md, business-check.md, deviation-table.md}`；②-B（v0.4.0 已实产）：`06_compliance/deviation-table.md`（②-B 模式逐行判定，覆盖写）＋ `06_compliance/consistency-issues.md`（跨章一致性）＋ `06_compliance/compliance-report.md` 追加「## 十一、②-B 成稿响应复查」节（保留 ②-A 记录追加不覆盖）；`similarity-check.md`（E 雷同）仍属规划未实产 |
 | 自检 | 读 `skills-lock.json`，三级降级，不阻断 |
 
-## 七、本版本能力范围（v0.2.2，阶段 1）
+## 七、本版本能力范围（v0.5.1，批次 1–4 修复＋阶段 5 增量）
 
 | 能力 | 状态 |
 |---|---|
-| 入口校验与阻断指路（区分 ②-A / ②-B 前置） | ✅ 已实现（脚本读 `00_metadata` 验 stage；②-B 前置待阶段 2） |
-| 状态读写（`checking`/`check_confirmed`/`rechecking`/`recheck_confirmed`） | ✅ 已实现（待关卡确认，不自动写 check_confirmed） |
+| 入口校验与阻断指路（区分 ②-A / ②-B 前置） | ✅ 已实现（②-A 验 `plan_confirmed`；②-B 验 `writing`〔`rechecking` 为重跑态〕，缺件阻断零产物 rc=2） |
+| 状态读写（`checking`/`check_confirmed`/`rechecking`/`recheck_confirmed`） | ✅ 已实现（②-B 执行中写回 `rechecking` 并登记 `skill_versions`；关卡确认仍归人工，不自动写 check/recheck_confirmed） |
 | 8 条铁律与反例 | ✅ 已落地 |
 | ②-A · A 废标/资格覆盖 | ✅ v0.2.0（category②/③ 全覆盖 + 跨类否决级补充扫描 + 孤儿卡检测） |
 | ②-A · G 评分违规识别 | ✅ v0.2.0（静态关键词，只标注不定性，不判违法） |
 | ②-A · D 商务表齐全性 | ✅ v0.2.0（bf 框架 24/24 覆盖，只查一致性不算价；**表格↔任务卡一一对应由 `check_compliance.py` 唯一实现**） |
-| ②-A · M8 商务表框架检查 | ✅ v0.2.2（`scripts/check_business.py`：零金额拦截（数字+单位／货币符号／中文大写／千分位四类形态，命中即阻断并以退出码 1 报出）、`required_fields` 与 `seal` 齐备、`chapter_id` 解析到 `01c`、`consistency_rules` 三条硬性规则覆盖） |
-| ②-A · F 资质时效 | ✅ v0.2.1（优先解析结构化 `02_facts.yaml/.json` 的 `valid_to`，退化扫描 `02_facts.md`；三态 expired/expiring_soon/stated/fact_missing，时间基准取 `00_metadata.deadline`） |
+| ②-A · M8 商务表框架检查 | ✅ v0.2.2（`scripts/check_business.py`：零金额拦截（数字+单位／货币符号／中文大写／千分位四类形态，命中即阻断并以退出码 1 报出）、`required_fields` 与 `seal` 齐备、`chapter_id` 解析到 `01c`、`consistency_rules` 三条硬性规则覆盖）；**`--mode B`（v0.5.1）成稿行内大小写金额等值核对**——同一行中文大写与数字金额归一比对，不等值即 rc=1；分项合计=总价无通用机检口径，声明人工核对 |
+| ②-A · F 资质时效 | ✅ v0.2.1（优先解析结构化 `02_facts.yaml/.json` 的 `valid_to`，退化扫描 `02_facts.md`；三态 expired/expiring_soon/stated/fact_missing，时间基准取 `00_metadata.deadline`；**v0.5.1：`qual_timing` 返回三元组（整体最坏态/明细/结构化 items），`compliance-report.json` 的 `f_qual_timing = {status, items, required_facts, deadline, detail}`——④ gate 联动阻断读此契约**） |
 | ②-A · C 形式字段齐备 | ⚠️ 部分（binding/seal 齐备性 ✅；bid_mode 传递/页数预算以信息态报出；页数上限未载明须回①确认或估算并写明依据） |
-| ②-A · B 响应偏离表 | ⚠️ 部分（bf-05/bf-19 偏离函框架在/缺判定 ✅；逐行 vs `01b` 一致性待 01b 齐备后重跑；填法细则见 `references/响应偏离表模板.md`） |
-| ②-B 响应检查（成稿后逐条响应、三态判定、跨章一致性、雷同自查） | ⏳ **阶段 2 交付**（脚本 `--mode B` 仅占位；操作细则已备：`references/判词库-投标侧.md`、`references/形式核对清单.md`、`references/暗标匿名检查.md`、`references/雷同自查清单.md`） |
-| ②-B · 跨章一致性（`scripts/check_consistency.py`，全套件唯一实现） | ⚠️ v0.3.0 骨架版（名称/编号精确基准比对全自动；金额/日期/工期为信号扫描待人工甄别；① ③ ④ 不复制，v0.9 已删 ③ 副本） |
+| ②-A · B 响应偏离表 | ⚠️ 部分（bf-05/bf-19 偏离函框架在/缺判定 ✅；**逐行 vs `01b` 一致性已由 ②-B v0.4.0 实装**并经示例市 1266 条真基验证；填法细则见 `references/响应偏离表模板.md`） |
+| ②-B · A-lite 任务卡成稿三态 | ✅ v0.4.0（03 任务卡 × `05_chapters/*.md`：已响应／响应不足〔残留【待填/待确认】给章节·段落·行号位置〕／未响应〔章节文件缺失〕／证据类〔scan 卡〕）；**v0.5.1：draft 章只警告不阻断**（`status≠final` 报「草稿章 n/m」——②-B 阶段允许，④ 导出硬阻断）；**前置缺章阻断**（04_outline 节点 vs 05_chapters 文件对不上 → rc=2，回 ③ 补写） |
+| ②-B · B 偏离表逐行 | ✅ v0.4.0（人工填写落点 `08_business/deviation-table.md` × `01b` 主键对行：跳条/多行/重行/照抄〔含限定符要求值照抄＝未响应，F3〕/响应值或判定空白/负偏离废标级单列〔`no_negative_allowed` 条目〕/出处断链；非法 id 与非法判定值拦截） |
+| ②-B · F 资质时效复核 | ✅ v0.4.0（复述 ②-A `qual_timing` 结论不重判；G5 前逐条处置 expired 项） |
+| ②-B · C 跨章一致性（`scripts/check_consistency.py`，全套件唯一实现） | ✅ v0.4.0（位置粒度「章节（number title，id）· 第 N 段 · L 行：原文片段」；名称变体〔基准主干比对＋招标人行置换防误报〕/编号异值/工期与金额**同语义多值 ⚠️**〔按语义类+单位族分组，组内 ≥2 值即报〕；中文大写金额归一，同值异形只记 ℹ️ 不误报〔全部写法可归一且归一同值才放行，v0.5.1 修死条件〕；日期先剔除防「12月」误判工期；**v0.5.1：关键日期槽（截止/开标/递交/有效期）同槽多值 ⚠️ 抬 rc=1**——槽词后 40 字内取日期，排期类日期仍为信号不判；rc=1 即 G5 须闭环） |
+| ②-B · E 雷同自查 | ⏳ 规划（套话密度/结构模板化/历史稿相似；`references/雷同自查清单.md` 已备，机检未实装；G5 人工项兜底） |
 | 检查类操作细则（references 七件，计划书 §3.5 接管必建项） | ✅ v0.3.0（判词库-投标侧/废标项比对方法/响应偏离表模板/形式核对清单/暗标匿名检查/雷同自查清单/资质时效核查） |
+| `SKILL.lite.md`（L0 纯对话版轻量提示词，计划书 §9／阶段 5） | ✅ v0.5.0 新增（A 段覆盖走查/F 类时效三态走查〔L0 价值最高的一步〕/B 段成稿响应走查；每步【能力依赖：L2】+降级指令、铁律自包含、R7 状态快照；一致性由 `validate_contract` C13 机检） |
 
 > ②-A 运行：`python scripts/check_compliance.py --bid <项目/bid目录>`（**要求 Python ≥ 3.12**），读取 `01/03/03c/01c/00_metadata.json`，**F 类优先读结构化 `02_facts.yaml`（无则 `02_facts.json`，再退化扫描 `02_facts.md`）**，
 > 输出 `06_compliance/{compliance-report,form-check,deviation-table}.md` + `compliance-report.json`
 > （`business-check.*` 自 v0.2.2 起移交 `check_business.py` 唯一写入，本脚本不再重复写同一落点）。
 > **只报事实态，不改写内容，不判废标**；G3 须人工逐条确认响应不足/未响应/需原件核对项后方可写 `check_confirmed`。
+>
+> **②-B 运行（v0.4.0）**：`python scripts/check_compliance.py --bid <项目/bid目录> --mode B`（**要求 Python ≥ 3.12**）。
+> 入口：`stage=writing`（重跑态 `rechecking` 合法）；前置＝②-A 全部产物 + `05_chapters/*.md`（n-xxxx 成稿）+ `06_compliance/compliance-report.md`，缺件阻断零产物（rc=2）。
+> 执行中写回 `stage=rechecking`；**前置人工件＝`08_business/deviation-table.md`（按 `references/响应偏离表模板.md` 填写，首列条目id 须照录 `01b` 主键 sp-xxx）**，缺失时 B 类阻断（blocked_by_contract）但仍出 A-lite/F 类结果。
+> 输出：`06_compliance/deviation-table.md`（②-B 逐行判定，覆盖写）＋ `06_compliance/compliance-report.md` 追加「## 十一、②-B 成稿响应复查」节。
+> **退出码：0＝无错误项；1＝存在错误/废标级负偏离（G5 前须闭环）；2＝前置缺失（阻断）**。
+> C 类跨章一致性**另跑**：`python scripts/check_consistency.py --bid <项目/bid目录>`（全套件唯一实现，①③④ 不复制）→ `06_compliance/consistency-issues.md`，rc=1 即 G5 须逐条闭环。
+> E 雷同与暗标终检、页数核对属 G5 人工项（`references/雷同自查清单.md` / `references/暗标匿名检查.md` / `references/形式核对清单.md`）。
 >
 > **M8 商务表专项检查（v0.2.2 新增）**：`python scripts/check_business.py --bid <项目/bid目录>`（**要求 Python ≥ 3.12**），读 `03c` + `01c`，
 > 输出 `06_compliance/{business-check.md, business-check.json}`。检查项：

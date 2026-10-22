@@ -15,7 +15,16 @@
 
 `06_compliance/`：
 - **②-A（阶段 1 已实产）**：`compliance-report.md`、`compliance-report.json`、`form-check.md`、`business-check.md`、`deviation-table.md`
-- **②-B（阶段 2 规划，未实产）**：`consistency-issues.md`、`similarity-check.md`
+- **②-B（v0.4.0 已实产）**：`deviation-table.md`（②-B 模式逐行判定，覆盖写）、`consistency-issues.md`（跨章一致性）、`compliance-report.md` 追加「## 十一、②-B 成稿响应复查」节（保留 ②-A 记录）；`similarity-check.md`（E 雷同）仍属规划
+
+## ②-B 运行（v0.4.0）
+
+`python scripts/check_compliance.py --bid <项目/bid目录> --mode B`（Python ≥ 3.12）：
+- 入口 `stage=writing`（重跑态 `rechecking` 合法）；执行中写回 `rechecking`；缺前置阻断零产物（rc=2）
+- **前置人工件**：`08_business/deviation-table.md`（按 `references/响应偏离表模板.md` 填写，首列条目id 照录 `01b` 主键）
+- A-lite 任务卡成稿三态（已响应/响应不足〔残留【待填】给位置〕/未响应/证据类）＋ B 偏离表逐行（跳条/多行/重行/照抄/空白判定/负偏离废标级单列/出处断链）＋ F 复述 ②-A 结论
+- 退出码：0=无错误；1=存在错误/废标级负偏离（G5 须闭环）；2=前置缺失
+- C 类另跑 `python scripts/check_consistency.py --bid <bid>`（全套件唯一实现）：工期/金额同语义多值 ⚠️＋名称变体＋同值异形（中文大写归一）不误报＋位置粒度到行
 
 ## 检查类
 
@@ -42,9 +51,10 @@ A 废标项｜B 响应偏离表｜G 评分违规识别（只标注不定性）�
 
 ## 版本
 
-`0.3.0`（references 七件补齐，计划书 §3.5 接管必建项落地；新增 `scripts/check_consistency.py` 跨章一致性骨架版——全套件唯一实现；②-B 与 E 类雷同自查仍随阶段 2 交付）
+`0.5.1`（专家复核批次 1–4 修复：`check_consistency.py` 关键日期槽〔截止/开标/递交/有效期同槽多值 ⚠️ 抬 rc=1〕＋金额同值异形死条件修复；`check_compliance.py` `qual_timing` 三元组契约〔`f_qual_timing.status/items`，④ gate 联动阻断〕＋draft 章警告不阻断＋前置缺章阻断 rc=2；`check_business.py --mode B` 行内大小写金额等值核对）；`0.5.0`（阶段 5：新增 `SKILL.lite.md` L0 纯对话版轻量提示词——A 段覆盖走查/F 类时效三态走查/B 段成稿响应走查，每步【能力依赖：L2】+降级指令、铁律自包含、R7 状态快照；一致性由 `validate_contract` C13 机检；脚本零变化）；`0.4.0`（②-B 成稿响应检查实装，阶段 2 第二步：`check_compliance.py --mode B`〔A-lite 三态/B 偏离表逐行/F 复核/G5 指引，退出码 0/1/2〕；`check_consistency.py` v0.4.0〔位置粒度＋工期/金额同语义多值 ⚠️＋中文大写归一同值异形不误报〕；`响应偏离表模板.md` 定人工填写落点 `08_business/deviation-table.md`＋条目id 主键列。经示例市真基 1266 条偏离表〔4 缺陷全检出〕与合成回归 T2-9/T2-10 验证）
 
 ## 依赖
 
 `references/`（上述七件 ＋ `流水线交接约定.md`、`常见错误.md`）、`assets/*.schema.*`。
-脚本：`check_compliance.py`（②-A）、`check_business.py`（M8）、`check_consistency.py`（②-B 跨章一致性骨架版）。
+脚本：`check_compliance.py`（②-A ＋ ②-B `--mode B`）、`check_business.py`（M8）、`check_consistency.py`（②-B 跨章一致性，全套件唯一实现）。
+轻量版：`SKILL.lite.md`（L0 纯对话平台粘贴用；无 frontmatter，不进 `skills-lock.json`）。

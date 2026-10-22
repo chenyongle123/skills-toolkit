@@ -1,23 +1,31 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-② bid-compliance-check — ②-A 覆盖检查（阶段 1）
-==============================================
-读取 ⓪ 事实库(01) / ① 任务卡(03) / 商务表框架(03c) / 格式章(01c) / 事实库(02_facts.md) / 状态(00_metadata.json)，
-对「废标项 / 资格项 / 评分点 / 商务表格」做覆盖闭合检查，输出 06_compliance/ 交付物。
+② bid-compliance-check — ②-A 覆盖检查 ＋ ②-B 成稿响应检查
+=========================================================
+②-A（阶段 1）：读取 ⓪ 事实库(01) / ① 任务卡(03) / 商务表框架(03c) / 格式章(01c) /
+事实库(02_facts) / 状态(00_metadata.json)，对「废标项 / 资格项 / 评分点 / 商务表格」
+做覆盖闭合检查，输出 06_compliance/ 交付物。
+②-B（v0.4.0，阶段 2）：成稿后响应检查——入口校验（stage=writing → 写 rechecking）、
+A-lite 任务卡成稿三态（已响应/响应不足/未响应/证据类，残留【待填】给位置）、
+B 偏离表逐行（08_business/deviation-table.md × 01b：跳条/多行/重行/照抄/空白判定/
+负偏离废标级/出处断链）、F 类 ②-A 结论复核；C 类跨章一致性归 check_consistency.py
+（全套件唯一实现），本脚本只提示调用。
 只报事实态（已响应 / 响应不足 / 未响应 / 需原件核对），不改写内容，不判定是否废标。
-②-B（成稿后，阶段 2）尚未实现，--mode B 仅占位。
 
 运行要求：Python ≥ 3.12（脚本按 3.12+ 维护；分发到更低版本环境须先升级解释器）。
 
 用法：
-  python check_compliance.py --bid <项目/bid目录> [--mode A]
+  python check_compliance.py --bid <项目/bid目录> [--mode A|B]
+  ②-B 退出码：0＝无错误项；1＝存在错误/废标级负偏离/阻断（G5 前须闭环）；
+  2＝前置缺失（阻断输出格式，零产物）。
 """
 import argparse
 import datetime as _dt
 import json
 import os
 import re
+import sys
 from collections import Counter, defaultdict
 
 QUAL_CAT = "②投标资格条件"
@@ -234,6 +242,9 @@ def _load_structured_facts(bid):
 
 def qual_timing(structured_facts, facts_text, deadline_date):
     """F 类资质时效三态：fact_missing / expired / expiring_soon / stated。
+
+    返回 (整体最坏态, 人读明细串, items 结构化列表)；items 供 ④ gate 联动阻断
+    （f_qual_timing.items[].state == "expired" 契约，与整体 status 双保险）。
     优先解析结构化 02_facts.yaml/.json（qual-/pers- 含 valid_to）；
     缺失时退化为扫描 02_facts.md 正则（旧行为，仅作兜底）。
     时间基准取 00_metadata.deadline，不以系统日期推算。"""
@@ -247,34 +258,46 @@ def qual_timing(structured_facts, facts_text, deadline_date):
                     certs.append((e.get("id"), vt))
         if certs:
             if deadline_date is None:
-                return "fact_missing", "metadata.deadline 缺失或不可解析，无法作为时效基准；须人工录入截止日后重跑"
+                return ("fact_missing",
+                        "metadata.deadline 缺失或不可解析，无法作为时效基准；须人工录入截止日后重跑",
+                        [{"fact_id": cid, "valid_to": str(vt), "state": "unknown"} for cid, vt in certs])
             worst = "stated"
             details = []
+            items = []
             for cid, vt in certs:
                 v = vt if isinstance(vt, _dt.date) else norm_date(str(vt))
                 if v is None:
                     details.append(f"{cid} valid_to={vt} 不可解析")
+                    items.append({"fact_id": str(cid), "valid_to": str(vt), "state": "unparseable"})
                     continue
                 if v < deadline_date:
                     worst = "expired"
                     details.append(f"{cid} valid_to={vt} 早于截止日({deadline_date})→废标风险")
+                    items.append({"fact_id": str(cid), "valid_to": str(vt), "state": "expired"})
                 elif v <= deadline_date + _dt.timedelta(days=180):
                     if worst != "expired":
                         worst = "expiring_soon"
                     details.append(f"{cid} valid_to={vt} 落入换证窗口(截止后180天内)")
+                    items.append({"fact_id": str(cid), "valid_to": str(vt), "state": "expiring_soon"})
                 else:
                     details.append(f"{cid} valid_to={vt} 有效")
-            return worst, "；".join(details) if details else "未解析到有效日期"
+                    items.append({"fact_id": str(cid), "valid_to": str(vt), "state": "stated"})
+            return worst, ("；".join(details) if details else "未解析到有效日期"), items
     # 退化：扫描 md 正则（兜底）
     certs_md = CERT_VALID_RE.findall(facts_text)
     if not certs_md:
         if FACT_ID_RE.search(facts_text):
-            return "fact_missing", "事实库含事实ID但缺结构化证书有效期字段，时效不可判；须回①补录后重跑"
-        return "fact_missing", "事实库(02_facts.yaml/.json)未含结构化事实条目（无 qual/pers 有效期），时效不可判；属资料缺口，须回①补录"
+            return ("fact_missing",
+                    "事实库含事实ID但缺结构化证书有效期字段，时效不可判；须回①补录后重跑", [])
+        return ("fact_missing",
+                "事实库(02_facts.yaml/.json)未含结构化事实条目（无 qual/pers 有效期），时效不可判；属资料缺口，须回①补录", [])
     if deadline_date is None:
-        return "fact_missing", "metadata.deadline 缺失或不可解析，无法作为时效基准；须人工录入截止日后重跑"
+        return ("fact_missing",
+                "metadata.deadline 缺失或不可解析，无法作为时效基准；须人工录入截止日后重跑",
+                [{"fact_id": "md-scan", "valid_to": str(cv), "state": "unknown"} for cv in certs_md])
     worst = "stated"
     details = []
+    items = []
     for cv in certs_md:
         v = norm_date(cv)
         if v is None:
@@ -282,13 +305,355 @@ def qual_timing(structured_facts, facts_text, deadline_date):
         if v < deadline_date:
             worst = "expired"
             details.append(f"{cv} 早于截止日({deadline_date})")
+            items.append({"fact_id": "md-scan", "valid_to": str(cv), "state": "expired"})
         elif v <= deadline_date + _dt.timedelta(days=180):
             if worst != "expired":
                 worst = "expiring_soon"
             details.append(f"{cv} 落入换证窗口(截止后180天内)")
+            items.append({"fact_id": "md-scan", "valid_to": str(cv), "state": "expiring_soon"})
         else:
             details.append(f"{cv} 有效")
-    return worst, "；".join(details) if details else "未解析到有效日期"
+            items.append({"fact_id": "md-scan", "valid_to": str(cv), "state": "stated"})
+    return worst, ("；".join(details) if details else "未解析到有效日期"), items
+
+
+# ================= ②-B 成稿响应检查（v0.4.0，阶段 2 实装） =================
+# 依据：计划书 §4.3（A/B/F 三类的 ②-B 列）、§11.2 验收 #5（偏离表逐条无合并/跳条）、
+# 交接约定 §二（②-B 前置＝②-A 全部＋05_chapters）§五（rechecking 写回）、
+# references/响应偏离表模板.md（人工填写契约：08_business/deviation-table.md）。
+
+PLACEHOLDER_RE = re.compile(r"【(?:待填|待确认)[^】]*】")
+CHAPTER_FILE_RE = re.compile(r"^(n-[0-9a-f]{4})(?:_.*)?\.md$")
+SP_ID_RE = re.compile(r"^sp-\d{3,}$")
+# 含限定符的要求值——照抄此类值无法证明真实匹配（F3：禁照抄原文）
+QUALIFIER_RE = re.compile(r"[≥≤<>]|不低于|不高于|不超过|不少于|至少|最多|以上|以下")
+VALID_VERDICTS = {"正偏离", "负偏离", "无偏离", "无"}
+VAGUE_POS_RE = re.compile(r"^(?:优于(?:招标)?要求|满足并优于|优于)$")
+
+
+def _body_text(text):
+    """剥离 frontmatter（③ 章节契约）；无 frontmatter 原样返回。"""
+    m = re.match(r"^---\s*\n.*?\n---\s*\n?", text, re.S)
+    return text[m.end():] if m else text
+
+
+def _fm_status(text):
+    """frontmatter status 行（chapter.schema：draft=步4草稿 / final=步5复核通过）。
+
+    无 frontmatter 或无 status 行 → ""（③ 契约要求必填；缺即事实态，按 draft 报）。
+    """
+    m = re.match(r"^---\s*\n(.*?)\n---\s*\n?", text, re.S)
+    if not m:
+        return ""
+    for ln in m.group(1).splitlines():
+        mm = re.match(r"^status:\s*['\"]?(\w+)['\"]?\s*$", ln.strip())
+        if mm:
+            return mm.group(1)
+    return ""
+
+
+def _norm_cell(s):
+    """表格单元格规范化：去空白与引号，供照抄/要求值比对。"""
+    return re.sub(r"\s+", "", (s or "").strip().strip('"').strip("'"))
+
+
+def load_chapters_b(bid):
+    """05_chapters/*.md → {chapter_id: {"fn":…, "residuals": [(段号, 行号, 片段)]}}。
+
+    residuals＝正文中残留的【待填/待确认】（③ 契约要求 final 前清零；
+    ②-B 复查：残留即响应不足证据，给位置）。
+    """
+    out = {}
+    d = os.path.join(bid, "05_chapters")
+    for fn in sorted(os.listdir(d)):
+        m = CHAPTER_FILE_RE.match(fn)
+        if not m:
+            continue
+        with open(os.path.join(d, fn), encoding="utf-8") as f:
+            text = f.read()
+        body = _body_text(text).splitlines()
+        residuals, para, in_blk = [], 0, False
+        for i, ln in enumerate(body):
+            if ln.strip():
+                if not in_blk:
+                    para += 1
+                    in_blk = True
+                for pm in PLACEHOLDER_RE.finditer(ln):
+                    residuals.append((para, i + 1, pm.group(0)))
+            else:
+                in_blk = False
+        out[m.group(1)] = {"fn": fn, "residuals": residuals, "status": _fm_status(text)}
+    return out
+
+
+def parse_deviation_table(path):
+    """解析人工填写的偏离表（references/响应偏离表模板.md 契约）。
+
+    返回 (rows, problems)：rows＝数据行字典列表；problems＝表头级问题（缺列/
+    无表头，阻断逐行检查）。列名定位而非列序，容列序调整。
+    """
+    rows, problems, header = [], [], None
+    with open(path, encoding="utf-8") as f:
+        lines = f.read().splitlines()
+    for ln in lines:
+        s = ln.strip()
+        if not s.startswith("|"):
+            continue
+        cells = [c.strip() for c in s.strip("|").split("|")]
+        if header is None:
+            if "条目id" in cells:
+                header = cells
+                for c in ("条目id", "招标要求值", "响应值", "偏离判定", "出处"):
+                    if c not in cells:
+                        problems.append(f"表头缺列「{c}」（按 references/响应偏离表模板.md 补齐）")
+            continue
+        if all(re.fullmatch(r":?-{3,}:?", c) for c in cells if c):
+            continue  # 分隔行
+        rows.append(cells)
+    if header is None:
+        problems.append("未找到含「条目id」的表头行（按 references/响应偏离表模板.md 重排）")
+        return [], problems
+    idx = {name: i for i, name in enumerate(header)}
+
+    def col(cells, name):
+        i = idx.get(name)
+        return cells[i] if i is not None and i < len(cells) else ""
+
+    out = [{"id": col(c, "条目id"), "clause": col(c, "条款号"), "requirement": col(c, "要求项"),
+            "required": col(c, "招标要求值"), "unit": col(c, "单位"), "response": col(c, "响应值"),
+            "verdict": col(c, "偏离判定"), "no_neg_col": col(c, "不允许负偏离"),
+            "source": col(c, "出处")} for c in rows]
+    return out, problems
+
+
+def mode_b(bid):
+    """②-B 成稿响应检查（v0.4.0）：入口校验 → stage=rechecking →
+    A-lite 成稿三态 ＋ B 偏离表逐行 ＋ F 处置提示 → G5 指引（不自动写 recheck_confirmed）。
+    """
+    meta_p = os.path.join(bid, "00_metadata.json")
+    if not os.path.exists(meta_p):
+        print("【执行阻断】bid-compliance-check（②-B）未执行")
+        print("原因：缺 00_metadata.json（流水线状态载体，⓪ 出口产出）")
+        print("处置：请先执行 ⓪ tender-document-review，产出 01_tender-facts.json 与 00_metadata.json")
+        return 2
+    with open(meta_p, encoding="utf-8") as f:
+        meta = json.load(f)
+    stage = meta.get("stage")
+    if stage not in ("writing", "rechecking"):
+        print("【执行阻断】bid-compliance-check（②-B）未执行")
+        print(f"原因：stage={stage}，②-B 要求 writing（rechecking 为 ②-B 重跑态）")
+        print("处置：请先完成 ③ 正文成稿（stage=writing）后重试本技能")
+        return 2
+
+    prereq = ["01_tender-facts.json", "01b_spec-items.json", "01c_format-outline.json",
+              "03_bid-plan.json", "04_outline.json",
+              os.path.join("06_compliance", "compliance-report.md")]
+    missing = [p for p in prereq if not os.path.exists(os.path.join(bid, p))]
+    if not any(os.path.exists(os.path.join(bid, f))
+               for f in ("02_facts.md", "02_facts.yaml", "02_facts.json")):
+        missing.append("02_facts.(md|yaml|json)")
+    ch_dir = os.path.join(bid, "05_chapters")
+    if not (os.path.isdir(ch_dir)
+            and any(CHAPTER_FILE_RE.match(f) for f in os.listdir(ch_dir))):
+        missing.append("05_chapters/*.md（n-xxxx 命名成稿）")
+    if missing:
+        print("【执行阻断】bid-compliance-check（②-B）未执行")
+        print(f"原因：前置产物缺件；当前 stage={stage}（要求 writing）")
+        print("缺少产物：")
+        for p in missing:
+            print("  -", p)
+        print("处置：缺 ②-A 产物先跑 --mode A；缺 05_chapters 先完成 ③ bid-technical-proposal 正文")
+        return 2
+
+    # ---------- 缺章阻断（04_outline 节点 vs 05_chapters 文件，写作未完成不查成稿）----------
+    outline_p = os.path.join(bid, "04_outline.json")
+    try:
+        with open(outline_p, encoding="utf-8") as f:
+            outline_chapters = json.load(f).get("chapters", [])
+    except (OSError, json.JSONDecodeError) as e:
+        print("【执行阻断】bid-compliance-check（②-B）未执行")
+        print(f"原因：04_outline.json 不可解析：{e}")
+        return 2
+    have = set(load_chapters_b(bid))
+    miss_ch = [str(c.get("id")) for c in outline_chapters if str(c.get("id")) not in have]
+    if miss_ch:
+        print("【执行阻断】bid-compliance-check（②-B）未执行")
+        print(f"原因：05_chapters 缺章 {len(miss_ch)}/{len(outline_chapters)}（04_outline 有节点而无对应章节文件，写作未完成）")
+        for cid in miss_ch[:10]:
+            print("  -", cid)
+        if len(miss_ch) > 10:
+            print(f"  …（共 {len(miss_ch)} 章）")
+        print("处置：回 ③ 完成全部章节后再跑 ②-B（可用 ③ word_count.py 核对 MISSING）")
+        return 2
+
+    # ---------- stage → rechecking（交接约定 §五：五项必写）----------
+    skill_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # 技能根（scripts 上一级）
+    with open(os.path.join(skill_dir, "SKILL.md"), encoding="utf-8") as f:
+        vself = (re.search(r"^version:\s*(\d+\.\d+\.\d+)\s*$", f.read(), re.M) or [None, "?"])[1]
+    meta["stage"] = "rechecking"
+    meta.setdefault("skill_versions", {})["bid-compliance-check"] = vself
+    meta["updated_at"] = _dt.datetime.now().astimezone().replace(microsecond=0).isoformat()
+    with open(meta_p, "w", encoding="utf-8") as f:
+        json.dump(meta, f, ensure_ascii=False, indent=1)
+
+    spec = load(os.path.join(bid, "01b_spec-items.json"))
+    items = {it["id"]: it for it in spec.get("items", [])}
+    plan = load(os.path.join(bid, "03_bid-plan.json"))
+
+    # ---------- A-lite：任务卡成稿三态 ----------
+    chapters = load_chapters_b(bid)
+    tri = []
+    for card in plan.get("items", []):
+        cid = card.get("chapter_id", "")
+        ch = chapters.get(cid)
+        if card.get("response_form") == "scan":
+            tri.append((card["id"], "证据类", cid, "扫描件响应，正文不适用（④ 装配时核对）"))
+        elif ch is None:
+            tri.append((card["id"], "未响应", cid, "章节文件缺失（05_chapters/ 无此章节）"))
+        elif ch["residuals"]:
+            locs = "；".join(f"第{p}段L{l}:{frag}" for p, l, frag in ch["residuals"][:3])
+            more = "" if len(ch["residuals"]) <= 3 else f"（共 {len(ch['residuals'])} 处）"
+            tri.append((card["id"], "响应不足", cid, f"残留【待填/待确认】{more}：{locs}"))
+        else:
+            tri.append((card["id"], "已响应", cid, ""))
+    n_ok = sum(1 for t in tri if t[1] == "已响应")
+    n_ins = sum(1 for t in tri if t[1] == "响应不足")
+    n_no = sum(1 for t in tri if t[1] == "未响应")
+    n_ev = sum(1 for t in tri if t[1] == "证据类")
+    # draft 章警告（③ 契约：final=步 5 背对背复核通过；②-B 阶段允许 draft，④ 导出硬阻断）
+    drafts = [cid for cid, ch in chapters.items() if ch["status"] != "final"]
+
+    # ---------- F 类：②-A 结论复核（不重判，列处置义务）----------
+    structured = _load_structured_facts(bid)
+    facts_text = ""
+    p02 = os.path.join(bid, "02_facts.md")
+    if os.path.exists(p02):
+        with open(p02, encoding="utf-8") as f:
+            facts_text = f.read()
+    deadline_date = parse_deadline(meta.get("deadline"))
+    f_status, f_detail, _f_items = qual_timing(structured, facts_text, deadline_date)
+
+    # ---------- B 类：偏离表逐行（计划书 §11.2 验收 #5）----------
+    dev_p = os.path.join(bid, "08_business", "deviation-table.md")
+    b_blocked, rows, errs, warns, fatal_neg = False, [], [], [], []
+    if not os.path.exists(dev_p):
+        b_blocked = True
+    else:
+        rows, problems = parse_deviation_table(dev_p)
+        errs.extend(("-", "-", p) for p in problems)
+        seen = defaultdict(int)
+        for r in rows:
+            seen[r["id"]] += 1
+        for r in rows:
+            sp = r["id"]
+            if not SP_ID_RE.match(sp):
+                errs.append((sp, sp, f"非法条目id「{sp}」（须 01b 主键 sp-xxx）"))
+                continue
+            if sp not in items:
+                errs.append((sp, sp, "多行（01b 无此条目，疑自造/错抄）"))
+                continue
+            if seen[sp] > 1:
+                errs.append((sp, sp, f"重行（出现 {seen[sp]} 次，疑合并/复制）"))
+                continue
+            it = items[sp]
+            req = _norm_cell(it.get("required_value", ""))
+            resp, verdict = _norm_cell(r["response"]), _norm_cell(r["verdict"])
+            if r["required"] and _norm_cell(r["required"]) != req:
+                errs.append((sp, sp, "招标要求值抄录不一致（疑错行，对照 01b）"))
+            if not resp:
+                errs.append((sp, sp, "响应值空白（按未响应：无偏离也须显式填写）"))
+            elif req and resp == req and QUALIFIER_RE.search(req):
+                errs.append((sp, sp, f"照抄招标要求「{req}」（无法证明真实匹配，按未响应——F3）"))
+            if not verdict:
+                errs.append((sp, sp, "偏离判定空白（按未响应）"))
+            elif verdict not in VALID_VERDICTS:
+                errs.append((sp, sp, f"非法判定值「{verdict}」（限 正偏离/负偏离/无偏离/无）"))
+            if verdict == "负偏离":
+                if it.get("no_negative_allowed"):
+                    fatal_neg.append((sp, "不允许负偏离条款出现负偏离（01b 标记，废标级事实态）"))
+                else:
+                    warns.append((sp, "负偏离（01b 未标不允许；事实态报出，处置由人定夺）"))
+            if verdict == "正偏离" and VAGUE_POS_RE.match((r["response"] or "").strip()):
+                errs.append((sp, sp, "正偏离不具体（须给具体数值/内容，不得只写「优于要求」）"))
+            src = (r["source"] or "").strip()
+            if not src:
+                errs.append((sp, sp, "出处空白（铁律 7：每段可回溯）"))
+            else:
+                m2 = re.search(r"n-[0-9a-f]{4}", src)
+                if m2 and m2.group(0) not in chapters:
+                    errs.append((sp, sp, f"出处断链（{m2.group(0)} 在 05_chapters/ 无对应文件）"))
+        for sp in items:
+            if seen.get(sp, 0) == 0:
+                errs.append((sp, sp, "跳条（01b 有此条而偏离表无行）"))
+    n_skip = sum(1 for _, _, d in errs if d.startswith("跳条"))
+    n_extra = sum(1 for _, _, d in errs if d.startswith("多行"))
+    n_dup = sum(1 for _, _, d in errs if d.startswith("重行"))
+
+    # ---------- 报告落盘 ----------
+    out_dir = os.path.join(bid, "06_compliance")
+    os.makedirs(out_dir, exist_ok=True)
+    md = ["# 响应偏离表逐条判定（②-B · B 类，v0.4.0）", ""]
+    md.append(f"> 输入：08_business/deviation-table.md（人工填写）× 01b_spec-items.json（{len(items)} 条）。")
+    md.append("> 口径：只报事实态，不替投标人选定处置；照抄招标要求＝无法证明真实匹配，按未响应（F3）。")
+    md.append("")
+    if b_blocked:
+        md.append("## B 类阻断（blocked_by_contract）")
+        md.append("- 08_business/deviation-table.md 缺失：请按 references/响应偏离表模板.md 人工填写后重跑。")
+    else:
+        md.append("## 一、逐行一致性")
+        ok_rows = (len(rows) - n_extra - n_dup) if len(rows) >= (n_extra + n_dup) else 0
+        md.append(f"- 偏离表行数 {len(rows)} vs 01b 条目 {len(items)}："
+                  f"{'✅ 一致' if len(rows) == len(items) else '❌ 不一致'}；可对行 {ok_rows}/{len(items)}")
+        md.append(f"- 跳条 {n_skip}、多行 {n_extra}、重行 {n_dup}（合并单元格拆行/跳条见 模板·填法铁则 4）。")
+        md.append("")
+        md.append("## 二、差异清单（错误级，全部闭环后方可过 G5）")
+        if errs:
+            for _, sp, d in errs:
+                md.append(f"- ❌ {sp}：{d}")
+        else:
+            md.append("- ✅ 无")
+        md.append("")
+        md.append("## 三、废标级负偏离单列（事实态，处置由人定夺）")
+        if fatal_neg:
+            for sp, d in fatal_neg:
+                md.append(f"- 🔴 {sp}：{d}")
+        else:
+            md.append("- ✅ 无")
+        if warns:
+            md.append("")
+            md.append("## 四、警告")
+            for sp, d in warns:
+                md.append(f"- ⚠️ {sp}：{d}")
+    with open(os.path.join(out_dir, "deviation-table.md"), "w", encoding="utf-8") as f:
+        f.write("\n".join(md))
+
+    # compliance-report.md 追加 ②-B 节（保留 ②-A 记录，追加不覆盖）
+    with open(os.path.join(out_dir, "compliance-report.md"), "a", encoding="utf-8") as f:
+        f.write("\n\n## 十一、②-B 成稿响应复查（v0.4.0，stage=rechecking）\n\n")
+        f.write(f"- A-lite 三态：已响应 {n_ok}／响应不足 {n_ins}／未响应 {n_no}／证据类 {n_ev}"
+                f"（任务卡 {len(tri)} 张）\n")
+        if drafts:
+            f.write(f"- ⚠️ 草稿章 {len(drafts)}/{len(chapters)}（status≠final，未过 ③ 步 5 背对背复核）："
+                    + "、".join(drafts[:8]) + ("…" if len(drafts) > 8 else "") + "\n")
+            f.write("  （②-B 阶段不阻断；④ 导出闸门对 status≠final 硬阻断——导出前须完成全部复核）\n")
+        for cid_, st_, ch_, note_ in tri:
+            if st_ != "已响应":
+                f.write(f"  - {st_}：{cid_}（{ch_}）{note_}\n")
+        f.write(f"- B 偏离表：{'阻断（08_business/deviation-table.md 缺失）' if b_blocked else f'错误 {len(errs)} 项、废标级负偏离 {len(fatal_neg)} 项（明细见 deviation-table.md）'}\n")
+        f.write(f"- F 类（②-A 结论复核，不重判）：{f_status}——{f_detail[:120]}\n")
+
+    print(f"②-B 检查完成 → {out_dir}")
+    print(f"  A-lite：已响应 {n_ok}／响应不足 {n_ins}／未响应 {n_no}／证据类 {n_ev}（{len(tri)} 张卡）")
+    if drafts:
+        print(f"  ⚠️ 草稿章 {len(drafts)}/{len(chapters)}（status≠final，未过 ③ 步 5 复核；②-B 不阻断，④ 导出硬阻断）")
+    print(f"  B 偏离表：{'阻断（08_business 缺 filled 表）' if b_blocked else f'错误 {len(errs)}、废标级负偏离 {len(fatal_neg)}'}")
+    print(f"  F 类：{f_status}｜G5 前须逐条处置 ②-A 遗留 expired 项")
+    print("  C 类一致性：另跑 python scripts/check_consistency.py --bid <bid>（全套件唯一实现）")
+    print("下一步：G5 成稿终检（人工：背对背复核差异清单闭环、跨章不一致、暗标终检、独立性自查）")
+    print("关卡：G5（人工确认后改写 stage → recheck_confirmed，再调用 bid-docx-export（④））")
+    print("回退：重大未响应/跨章不一致 → stage 改回 writing 交 ③ 改正文（≤2 轮，耗尽置 exhausted）")
+    rc = 0 if (not errs and not fatal_neg and not b_blocked and n_no == 0 and n_ins == 0) else 1
+    return rc
 
 
 def main():
@@ -299,8 +664,7 @@ def main():
     bid = args.bid
 
     if args.mode == "B":
-        print("②-B（成稿后响应检查）尚未实现，属阶段 2 交付。")
-        return
+        return mode_b(bid)
 
     p01 = os.path.join(bid, "01_tender-facts.json")
     p03 = os.path.join(bid, "03_bid-plan.json")
@@ -400,7 +764,7 @@ def main():
     # ---------- F 类：资质时效（三态，时间基准取 metadata.deadline） ----------
     qual_cards = [it for it in items if it.get("source_type") == "qualification"]
     required_facts = sorted({rf for it in qual_cards for rf in it.get("required_facts", [])})
-    f_status, f_detail = qual_timing(structured_facts, facts_text, deadline_date)
+    f_status, f_detail, f_items = qual_timing(structured_facts, facts_text, deadline_date)
 
     # ---------- 汇总计数 ----------
     def count(rows):
@@ -484,7 +848,8 @@ def main():
         "form_fields": {"present": form_fields, "missing": form_missing,
                         "page_limit_stated": page_limit_stated},
         "g_suspicion": flags,
-        "f_qual_timing": {"status": f_status, "required_facts": required_facts,
+        "f_qual_timing": {"status": f_status, "items": f_items,
+                          "required_facts": required_facts,
                           "deadline": meta_json.get("deadline"), "detail": f_detail},
     }
     with open(os.path.join(out_dir, "compliance-report.json"), "w", encoding="utf-8") as f:
@@ -616,4 +981,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

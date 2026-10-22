@@ -6,13 +6,13 @@
 
 | 技能 | 版本 | 定位 |
 |---|---|---|
-| [tender-document-review](skills/tender-document-review/) | v1.5.0 | 投标方视角招标文件审查：将限制性条款规范、不漏、可追溯地提取为七类结构化清单 |
-| [business-contract-review](skills/business-contract-review/) | v1.0.0 | 中国法商务合同审核：四类合同条款级审查，红黄绿分级 + 可用 redline 修改建议 |
+| [tender-document-review](skills/tender-document-review/) | v1.5.1 | 投标方视角招标文件审查：将限制性条款规范、不漏、可追溯地提取为七类结构化清单 |
+| [business-contract-review](skills/business-contract-review/) | v1.1.0 | 中国法商务合同审核：六类合同条款级审查，红黄绿分级 + 可用 redline 修改建议 |
 | [delivery-audit](skills/delivery-audit/) | v1.1.3 | 交付前审查闸门：五条铁律 + 四段闸门 + 三态输出（✅/⚠️/❌） |
-| [bid-response-plan](skills/bid-response-plan/) | v0.6.0 | ① 投标响应策划：任务卡、目录骨架、商务表框架（v0.6.0 阶段 1 已实装） |
-| [bid-compliance-check](skills/bid-compliance-check/) | v0.3.2 | ② 投标合规自检：②-A 覆盖检查已实装（阶段 1）；②-B 响应检查随阶段 2 |
-| [bid-technical-proposal](skills/bid-technical-proposal/) | v0.1.1 | ③ 技术标正文：逐章成文，技术路线须过 G4（骨架，阶段 2 交付） |
-| [bid-docx-export](skills/bid-docx-export/) | v0.1.1 | ④ 排版导出：样式档、证据装配、元数据清理（骨架，阶段 3 交付） |
+| [bid-response-plan](skills/bid-response-plan/) | v0.22.0 | ① 投标响应策划：招标解读产物转任务卡、目录骨架、商务表框架与素材缺口清单 |
+| [bid-compliance-check](skills/bid-compliance-check/) | v0.5.1 | ② 投标合规自检：②-A 任务卡/目录覆盖检查 + ②-B 成稿响应/偏离/形式/资质/雷同检查 |
+| [bid-technical-proposal](skills/bid-technical-proposal/) | v0.3.1 | ③ 技术标正文：按任务卡逐章成文，每段标注事实/评分点来源，须过 G4 |
+| [bid-docx-export](skills/bid-docx-export/) | v0.2.2 | ④ 排版导出：样式档、证据装配、元数据清理与雷同回扫，未过终检拒绝导出 |
 
 ## 技能关系
 

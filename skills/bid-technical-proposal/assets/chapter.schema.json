@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "chapter.schema.json",
+  "title": "05_chapters/<chapter_id>.md 的 YAML frontmatter（③ 章节产物契约）",
+  "description": "计划书 §5.1/§5.2。③ 逐章产出 05_chapters/<chapter_id>.md：frontmatter 记章节定位与 G4 状态，正文为 Markdown、每段带 [[F:…]]/[[S:…]] 来源标注（由 scripts/check_facts.py 核验）。chapter_id/number/title/word_target 须与 04_outline.json 同名节点一致，title 逐字取自 01c（铁律 2）。本 schema 为 ③ 单副本，不进 skills-lock（§5.2 矩阵）。文件名 = <chapter_id>.md，可追加中文说明后缀（如 n-3a2f_施工组织设计.md）。配套脚本按 ^n-[0-9a-f]{4} 识别文件。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "chapter_id", "number", "title", "status", "word_target", "g4"],
+  "properties": {
+    "schema_version": {"const": "0.1"},
+    "chapter_id": {
+      "type": "string",
+      "pattern": "^n-[0-9a-f]{4}$",
+      "description": "与 04_outline.json chapters[].id 同一节点同一 id（稳定主键）"
+    },
+    "number": {
+      "type": "string",
+      "description": "章序号，照录 04_outline 同名节点（仅为展示，如 第三章 / 3.2）"
+    },
+    "title": {
+      "type": "string",
+      "description": "章节名，逐字取自 01c／04_outline（铁律 2：任何改写即违约）"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["draft", "final"],
+      "description": "draft=步4 草稿完成；final=步5 背对背复核通过（未过复核不得置 final）"
+    },
+    "word_target": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "本章目标篇幅，与 04_outline 同名节点 word_target 一致（非金额、非页数）"
+    },
+    "g4": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["confirmed", "confirmed_by", "confirmed_at", "route_summary"],
+      "properties": {
+        "confirmed": {
+          "type": "boolean",
+          "description": "本章技术路线是否经 G4 人工确认；false 时不得动笔（五步循环步3 卡点）"
+        },
+        "confirmed_by": {
+          "type": "string",
+          "description": "确认人，人工填写，AI 不得代填；未确认时留空串"
+        },
+        "confirmed_at": {
+          "type": "string",
+          "description": "确认时间，ISO 8601（YYYY-MM-DD 或 YYYY-MM-DDTHH:mm+08:00）；未确认时留空串"
+        },
+        "route_summary": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "本章技术路线要点 3–5 条（G4 确认对象）；confirmed=true 时不得为空，每条须能溯源到 02_facts／02b_knowledge／用户明示（铁律 8）"
+        }
+      }
+    }
+  }
+}

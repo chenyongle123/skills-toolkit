@@ -19,6 +19,12 @@
   C9 四技能 SKILL.md 的入口 stage、下一技能指路、交接约定引用齐备（防"声称接好了实际没接"）
   C10 铁律块与计划书 §7 原文一致（唯一真源比对；计划书不在时跳过并提示）
   C11 03 的补遗对照前置项在位且合法（p-0001 / 三态 / blocking / 非 pass 须有证据）
+  C12 schema 同版本同内容冻结：lock 内绑定每个 schema 的 (schema_version, hash)，
+       同版本异内容即报错且 --write-lock 拒绝盲写（结构性/内容变更必须先 bump schema_version）；
+       内嵌合成样例自证检测器有效
+  C13 SKILL.lite.md（L0 轻量版，阶段 5）：①②③ 三份在位、无 frontmatter（防平台
+       误加载为独立技能造成路由冲突）、IRONLAWS 块与主 SKILL.md 逐字一致（防两处
+       铁律漂移）、≥3 处【能力依赖：L2】标注（计划书 §9 硬性要求）
 """
 from __future__ import annotations
 
@@ -146,6 +152,94 @@ def check_versions_and_hashes(compare: bool = True) -> dict:
     else:
         notes.append("skills-lock.json 不存在（可用 --write-lock 生成）")
     return lock
+
+
+# ---------- C12 ----------
+def read_declared_version(path: Path) -> str | None:
+    """实读 schema 声明的版本：JSON 取 properties.schema_version.const；YAML 取顶层 schema_version 行。
+
+    无 const 声明的 schema 无法绑定冻结基线——历史教训：compliance-report 曾为 loose string，
+    实装写 0.2、fixture 写 0.1 各说各话而任何检查都看不见（与 63 处漂移同类的版本失忆）。
+    """
+    text = path.read_text(encoding="utf-8")
+    if path.name.endswith(".json"):
+        try:
+            doc = json.loads(text)
+        except json.JSONDecodeError:
+            return None
+        prop = doc.get("properties", {}).get("schema_version")
+        if isinstance(prop, dict) and isinstance(prop.get("const"), str):
+            return prop["const"]
+        return None
+    m = re.search(r'^schema_version:\s*["\']?([0-9][0-9A-Za-z.\-]*)', text, re.M)
+    return m.group(1) if m else None
+
+
+def find_freeze_violations(old_schemas: dict, new_schemas: dict) -> list[str]:
+    """同版本同内容不变量：schema_version 未变则 hash 必须不变。纯函数，主检与自证共用。"""
+    out = []
+    for name, rec in new_schemas.items():
+        o = old_schemas.get(name) or {}
+        if not o.get("schema_version") or not rec.get("schema_version"):
+            continue
+        if o["schema_version"] == rec["schema_version"] and o.get("hash") != rec.get("hash"):
+            out.append(name)
+    return out
+
+
+def check_schema_freeze(collected: dict) -> None:
+    """C12：schema 同版本同内容冻结（内容/结构性变更必须先 bump schema_version，再 --write-lock）。
+
+    根因背景（阶段 1 示例市 63 处漂移）：clarifications 形态、枚举扩缩等结构性变更在
+    contract_schema_version=0.4 内静默发布，历史产物仍标 0.4，B.2「契约结构」等值校验（0.4==0.4）
+    必然放行——同版本下旧产物与坏产物机器无法区分。本检查把「版本」与「内容 hash」在 lock 内绑定：
+    同版本异内容即静默变更，validate 报错、--write-lock 拒绝盲写；先 bump 版本才允许更新基线。
+    """
+    # 内嵌自证（负例永久回归）：检测器对三组样例的判定必须全对，否则检测器本身失效
+    if find_freeze_violations({"s": {"schema_version": "0.4", "hash": "a"}},
+                              {"s": {"schema_version": "0.4", "hash": "b"}}) != ["s"]:
+        err("C12", "检测器自证失败：同版本异内容未被抓出")
+    if find_freeze_violations({"s": {"schema_version": "0.4", "hash": "a"}},
+                              {"s": {"schema_version": "0.5", "hash": "b"}}):
+        err("C12", "检测器自证失败：bump 版本后的改版被误杀")
+    if find_freeze_violations({"s": {"schema_version": "0.4", "hash": "a"}},
+                              {"s": {"schema_version": "0.4", "hash": "a"}}):
+        err("C12", "检测器自证失败：同版本同内容被误杀")
+
+    for name, rec in collected["schemas"].items():
+        owners = rec.get("copies") or SCHEMAS.get(name, [])
+        p = SKILLS / owners[0] / "assets" / name if owners else None
+        ver = read_declared_version(p) if p and p.exists() else None
+        if ver is None:
+            err("C12", f"{name} 未声明 const schema_version，无法绑定冻结基线（schema 必须带版本）")
+            continue
+        rec["schema_version"] = ver
+
+    old = json.loads(LOCK.read_text(encoding="utf-8")) if LOCK.exists() else {}
+    old_schemas = old.get("schemas", {})
+    if old_schemas and not any(o.get("schema_version") for o in old_schemas.values()):
+        notes.append("C12 旧 lock 无 schema_version 字段，需 --write-lock 补齐后冻结比对生效")
+    for name in sorted(find_freeze_violations(old_schemas, collected["schemas"])):
+        rec = collected["schemas"][name]
+        err("C12", f"{name} 同版本({rec['schema_version']})异内容：schema 内容变更必须先 bump "
+                   f"schema_version 再 --write-lock（同版本静默变更 = 63 处漂移根因）")
+
+    # 双字段内部一致：同时声明 schema_version 与 contract_schema_version 的 schema，两 const 必须相同
+    for name, rec in collected["schemas"].items():
+        if not name.endswith(".json"):
+            continue
+        owners = rec.get("copies") or SCHEMAS.get(name, [])
+        p = SKILLS / owners[0] / "assets" / name if owners else None
+        if not p or not p.exists():
+            continue
+        try:
+            doc = json.loads(p.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            continue
+        a = (doc.get("properties", {}).get("schema_version") or {}).get("const")
+        b = (doc.get("properties", {}).get("contract_schema_version") or {}).get("const")
+        if isinstance(a, str) and isinstance(b, str) and a != b:
+            err("C12", f"{name} 内部双版本不一致：schema_version={a} ≠ contract_schema_version={b}")
 
 
 # ---------- C3 / C4 ----------
@@ -412,9 +506,44 @@ def check_preconditions() -> None:
             err("C11", f"{x.get('id')} result≠pass 却无 evidence，判定不可信")
 
 
+# ---------- C13（阶段 5） ----------
+LITE_REQUIRED = ["bid-response-plan", "bid-compliance-check", "bid-technical-proposal"]
+
+
+def check_lite() -> None:
+    """C13：SKILL.lite.md（L0 轻量版，阶段 5 交付物）契约。
+
+    - ①②③ 三份 lite 必须在位（④ 排版导出依赖文件系统，L0 无承载意义；
+      ⓪ 计划书 §9 仅要求 ①②③，不越界）；
+    - lite 首行不得是 frontmatter ``---``：lite 是粘贴式提示词，带 frontmatter
+      会被部分平台当作独立技能索引加载，与主技能形成路由冲突；
+    - lite 的 IRONLAWS 块必须与同技能主 SKILL.md 逐字一致（防两处铁律漂移）；
+    - lite 至少 3 处【能力依赖：L2】标注（计划书 §9 硬性要求：每步末尾标注
+      并紧跟一句降级指令）。
+    ④/⓪ 未强制 lite，但若存在同样接受一致性校验（向前兼容）。
+    """
+    for s in FIVE:
+        lite = SKILLS / s / "SKILL.lite.md"
+        if not lite.exists():
+            if s in LITE_REQUIRED:
+                err("C13", f"{s} 缺少 SKILL.lite.md（阶段 5 交付物，计划书 §9 要求 ①②③ 三份）")
+            continue
+        text = lite.read_text(encoding="utf-8")
+        if text.lstrip().startswith("---"):
+            err("C13", f"{s}/SKILL.lite.md 不得带 frontmatter（防平台误加载为独立技能造成路由冲突）")
+        m = re.search(r"<!-- IRONLAWS:BEGIN -->(.*?)<!-- IRONLAWS:END -->", text, re.S)
+        if not m:
+            err("C13", f"{s}/SKILL.lite.md 缺少 IRONLAWS 标记（lite 须自包含八条铁律，L0 无 references 可读）")
+        elif m.group(1).strip() != ironlaws(s):
+            err("C13", f"{s}/SKILL.lite.md 铁律块与主 SKILL.md 不一致（两处漂移，以主文件为准修订 lite）")
+        if text.count("【能力依赖：L2】") < 3:
+            err("C13", f"{s}/SKILL.lite.md 的【能力依赖：L2】标注不足 3 处（§9：每个步骤末尾标注并紧跟降级指令）")
+
+
 def main() -> int:
     write_lock = "--write-lock" in sys.argv
     lock = check_versions_and_hashes(compare=not write_lock)
+    check_schema_freeze(lock)
     check_verbatim()
     check_schemas_and_fixtures()
     check_facts_fixture()
@@ -424,6 +553,7 @@ def main() -> int:
     check_handoff()
     check_against_plan()
     check_preconditions()
+    check_lite()
 
     if write_lock and not errors:
         tz = timezone(timedelta(hours=8))

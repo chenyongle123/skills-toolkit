@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: CC-BY-NC-4.0
 """scan_doc.py — 计划文档自身一致性自检（零依赖）
 
-用法：python tests/scan_doc.py docs/投标文件Skill建设计划_v0.16.md
+用法：python tests/scan_doc.py docs/投标文件Skill建设计划_v<当前版>.md
+     （版本随计划书演进，取 docs/ 下文件名含「建设计划」且版本号最大的一份）
 
 检查项：
   D1 标题版本 = 文件名版本

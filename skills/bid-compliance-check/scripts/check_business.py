@@ -19,7 +19,9 @@ SPDX-License-Identifier: CC-BY-NC-4.0
      如实标注「以 ① 抽取声明为准」，不得无源断言
 
 边界：只报事实态，不填金额、不算价、不改写 03c（M8「① 出框架 / ② 查 / ④ 装订，均不填价」）。
-②-B（人工填写后的一致性：大小写金额、分项合计=总价）属阶段 2，--mode B 仅占位。
+②-B（--mode B，人工填写后）：08_business/ 成稿的行内大小写金额等值核对 +
+分项合计=总价人工核对声明（表格结构无通用机检口径，不得无源断言——B2/B5 已查
+字段与规则覆盖，数值合计归人工）。
 
 运行要求：Python ≥ 3.12（与 check_compliance.py 同基线）。
 用法：
@@ -173,6 +175,110 @@ def check_consistency_rules(bus):
     return covered, missing
 
 
+def mode_b_business(bid):
+    """②-B 商务表成稿检查（C8 实装）：08_business/ 人工填写文件 × 行内大小写金额等值核对。
+
+    口径：同一行内同时出现中文大写金额与数字金额（商务表「大写：捌拾万元整 / 小写：
+    ¥800,000.00」形态）→ 归一比对；行内两集合无交集值即不等值（错误级）。
+    分项合计=总价：表格结构无通用机检口径，明确声明人工核对（不得无源断言）。
+    rc：0 无不等值；1 检出行内大小写不等值；2 前置缺失（08_business/ 空）。
+    """
+    biz_dir = os.path.join(bid, "08_business")
+    if not os.path.isdir(biz_dir):
+        print("【执行阻断】bid-compliance-check（②-B 商务表）未执行")
+        print(f"原因：{biz_dir} 不存在（商务表人工填写目录）")
+        return 2
+    files = sorted(fn for fn in os.listdir(biz_dir)
+                   if os.path.splitext(fn)[1].lower() in (".md", ".txt", ".csv"))
+    if not files:
+        print("【执行阻断】bid-compliance-check（②-B 商务表）未执行")
+        print(f"原因：{biz_dir} 无 .md/.txt/.csv 人工填写文件")
+        return 2
+
+    n_pairs = n_bad = 0
+    print(f"②-B 商务表成稿检查：{len(files)} 个文件")
+    for fn in files:
+        path = os.path.join(biz_dir, fn)
+        for i, ln in enumerate(open(path, encoding="utf-8").read().splitlines(), 1):
+            ups = [(m.group(0), parse_cn_amount(m.group(0))) for m in CN_AMT_RE.finditer(ln)]
+            lows = [(m.group(0), amount_to_yuan_b(m.group(0))) for m in NUM_AMT_RE.finditer(ln)]
+            ups = [(t, v) for t, v in ups if v is not None]
+            lows = [(t, v) for t, v in lows if v is not None]
+            if not ups or not lows:
+                continue
+            n_pairs += 1
+            up_vals = {round(v, 2) for _, v in ups}
+            low_vals = {round(v, 2) for _, v in lows}
+            if up_vals & low_vals:
+                continue
+            n_bad += 1
+            print(f"  ❌ {fn} L{i}：行内大小写不等值——大写 {[t for t, _ in ups]} vs "
+                  f"小写 {[t for t, _ in lows]}（归一 {[sorted(up_vals)]} vs {[sorted(low_vals)]}）")
+    print(f"行内大小写金额核对：{n_pairs} 对，不等值 {n_bad} 对" + (" ❌" if n_bad else " ✅"))
+    if n_pairs == 0:
+        print("ℹ️ 未检出「大写+小写」同现行（商务表未双写或金额未填；填写完整性另见 --mode A B1/B2）")
+    print("分项合计=总价：表格结构无通用机检口径，须人工核对（B5 已核 consistency_rules 规则覆盖；"
+          "铁律 1：AI 不测算价格）")
+    return 1 if n_bad else 0
+
+
+# 中文大写金额归一（与 check_consistency.py 同口径；独立分发各自实现，改须两处同步）
+_CN_NORM_B = str.maketrans("壹贰叁肆伍陆柒捌玖拾佰仟", "一二三四五六七八九十百千")
+_CN_DIGIT_B = {"一": 1, "二": 2, "三": 3, "四": 4, "五": 5, "六": 6, "七": 7, "八": 8, "九": 9}
+_CN_UNIT_B = {"十": 10, "百": 100, "千": 1000}
+CN_AMT_RE = re.compile(r"[零壹贰叁肆伍陆柒捌玖拾佰仟]+(?:[万亿][零壹贰叁肆伍陆柒捌玖拾佰仟]*)*[元圆][整]?|"
+                       r"[零壹贰叁肆伍陆柒捌玖拾佰仟万亿]+[元圆][整]?")
+NUM_AMT_RE = re.compile(r"[¥￥]\s*[\d,]+(?:\.\d+)?|[\d,]+(?:\.\d+)?\s*(?:亿元|万元|元)")
+
+
+def _cn_section_b(seg):
+    if not seg:
+        return 0
+    total, num = 0, 0
+    for ch in seg:
+        if ch in _CN_DIGIT_B:
+            num = _CN_DIGIT_B[ch]
+        elif ch in _CN_UNIT_B:
+            total += (num or 1) * _CN_UNIT_B[ch]
+            num = 0
+        else:
+            return None
+    return total + num
+
+
+def parse_cn_amount(s):
+    """中文金额串 → 元（float）；失败返 None（同 check_consistency.parse_cn_amount）。"""
+    t = re.sub(r"人民币|圆|元|整|零", "", s).translate(_CN_NORM_B)
+    if not t or not re.fullmatch(r"[一二三四五六七八九十百千万亿]+", t):
+        return None
+    parts = re.split(r"([万亿])", t)
+    yuan, m, i = 0.0, 1, len(parts) - 1
+    seg = _cn_section_b(parts[i])
+    if seg is None:
+        return None
+    yuan += seg
+    i -= 1
+    while i >= 1:
+        seg = _cn_section_b(parts[i - 1])
+        if seg is None:
+            return None
+        m *= {"万": 1e4, "亿": 1e8}[parts[i]]
+        yuan += seg * m
+        i -= 2
+    return yuan if yuan else None
+
+
+def amount_to_yuan_b(raw):
+    """数字金额 → 元；失败返 None（同 check_consistency.amount_to_yuan 口径）。"""
+    s = re.sub(r"\s+", "", raw)
+    if re.fullmatch(r"[¥￥][\d,]+(?:\.\d+)?", s):
+        return float(s[1:].replace(",", ""))
+    m = re.fullmatch(r"([\d,]+(?:\.\d+)?)(亿元|万元|元)", s)
+    if m:
+        return float(m.group(1).replace(",", "")) * {"亿元": 1e8, "万元": 1e4, "元": 1}[m.group(2)]
+    return None
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--bid", required=True, help="项目 bid 目录")
@@ -181,8 +287,7 @@ def main():
     bid = args.bid
 
     if args.mode == "B":
-        print("②-B（人工填写后的一致性检查：大小写金额 / 分项合计=总价）尚未实现，属阶段 2 交付。")
-        return
+        return mode_b_business(bid)
 
     p03c = os.path.join(bid, "03c_business-forms.json")
     p01c = os.path.join(bid, "01c_format-outline.json")
@@ -304,4 +409,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
