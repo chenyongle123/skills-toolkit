@@ -40,6 +40,7 @@ RA = ROOT / "tests" / "run_acceptance.py"
 BP = ROOT / "skills" / "bid-response-plan" / "scripts" / "build_bid_plan.py"
 CC = ROOT / "skills" / "bid-compliance-check" / "scripts" / "check_compliance.py"
 ED = ROOT / "skills" / "bid-docx-export" / "scripts" / "export_docx.py"
+CB = ROOT / "skills" / "bid-compliance-check" / "scripts" / "check_business.py"
 
 results = []
 TMP_BIDS = []
@@ -430,9 +431,142 @@ def t4_7():
           "rc=%s %s" % (r.returncode, r.stdout[-300:]))
 
 
+# ---------- T4-8 ①②③ 入口闸门（缺件零产物，形态统一） ----------
+# 背景：①②③ 缺件时原本抛 FileNotFoundError/AssertionError 栈回溯（rc=1、无产品级指路）；
+#      v0.23.0（①）/ v0.5.2（②）改写为与 ④ `_common.gate()` 同形态的入口闸门：
+#      「【执行阻断】→ 原因 → 缺少产物 → 处置」，rc=2 且**不落任何产物**。本例固化该行为。
+
+def t4_8():
+    banner = "【执行阻断】"
+    # (a) 空 bid 目录：三个入口一致阻断、无栈回溯、零产物
+    for name, script, extra in (
+            ("①", BP, ()),
+            ("②-A", CC, ("--mode", "A")),
+            ("②-M8", CB, ("--mode", "A"))):
+        bid = Path(tempfile.mkdtemp(prefix="t4_8_"))
+        TMP_BIDS.append(bid)
+        r = run_py(script, "--bid", str(bid), *extra)
+        out = r.stdout + r.stderr
+        check("T4-8a %s 空目录阻断 rc=2 且无栈回溯" % name,
+              r.returncode == 2 and banner in out and "Traceback" not in out,
+              "rc=%s out=%s" % (r.returncode, out[-300:]))
+        check("T4-8b %s 空目录零产物（不建 06_compliance/）" % name,
+              not (bid / "06_compliance").exists()
+              and not (bid / "01c_format-outline.json").exists(),
+              str(sorted(p.name for p in bid.iterdir())))
+
+    # (c) ① 非 reviewed（已过 G1）→ 阻断并指路 ②，不重跑总装
+    bid = mk_synth()
+    human_confirm(bid, "plan_confirmed")
+    before = sorted(p.name for p in bid.iterdir())
+    r = run_py(BP, "--bid", str(bid))
+    check("T4-8c ① stage=plan_confirmed 阻断 rc=2 并指路 ②-A",
+          r.returncode == 2 and "plan_confirmed" in r.stdout and "②" in r.stdout,
+          "rc=%s %s" % (r.returncode, r.stdout[-300:]))
+    check("T4-8d ① 被拒时零产物（不覆写 01b/01c/03/04）",
+          sorted(p.name for p in bid.iterdir()) == before,
+          "diff=%s" % (set(sorted(p.name for p in bid.iterdir())) ^ set(before)))
+
+    # (e) ②-A stage 合法但缺 01b/01c/03/04 → 逐条列出缺件，且不建 06_compliance
+    bid = mk_synth()
+    human_confirm(bid, "plan_confirmed")
+    for n in ("01b_spec-items.json", "01c_format-outline.json",
+              "03_bid-plan.json", "04_outline.json"):
+        p = bid / n
+        if p.exists():
+            p.unlink()
+    r = run_py(CC, "--bid", str(bid), "--mode", "A")
+    check("T4-8e ②-A 缺件逐条列出 rc=2",
+          r.returncode == 2 and "缺少产物" in r.stdout
+          and all(n in r.stdout for n in ("01b_spec-items.json", "04_outline.json")),
+          "rc=%s %s" % (r.returncode, r.stdout[-300:]))
+    check("T4-8f ②-A 缺件时不建 06_compliance/",
+          not (bid / "06_compliance").exists())
+
+    # (g) 02_facts 可缺：交接约定「可缺但须显式告警」——不得阻断（前置：① 产物齐备）
+    bid = mk_synth()
+    human_confirm(bid, "reviewed")
+    r = run_py(BP, "--bid", str(bid))
+    check("T4-8g 前置：① 总装 rc=0（造齐 01b/01c/03/04）", r.returncode == 0,
+          "rc=%s %s" % (r.returncode, r.stdout[-300:]))
+    human_confirm(bid, "plan_confirmed")
+    r = run_py(CC, "--bid", str(bid), "--mode", "A")
+    check("T4-8h ②-A 缺 02_facts 仅告警不阻断 rc=0",
+          r.returncode == 0 and "02_facts" in r.stdout and "blocked_by_facts" in r.stdout,
+          "rc=%s %s" % (r.returncode, r.stdout[-300:]))
+
+
+# ---------- T4-9 ②-B 暗标终检机检化（② 侧，早于 ④） ----------
+# 背景：暗标终检原只在 ②-B 报告文字里提示「人工做」；v0.5.2 改为机检——
+#       bid_mode=blind 时用 01c.typography.identity_ban 逐串扫 05_chapters/*.md 全文，
+#       命中计入 rc=1（B 类同级），identity_ban 空则只提示不误伤（与 ④ T4-7b 同口径）。
+
+def t4_9():
+    def prep(identities):
+        bid = mk_synth()
+        _patch_json(bid / "00_metadata.json", lambda m: m.update(bid_mode="blind"))
+        ra(bid, "--run")                      # ① 产物（停在 G2+G1）
+        human_confirm(bid, "plan_confirmed")
+        ra(bid, "--run")                      # ②-A 产物（停在 G3）
+        human_confirm(bid, "check_confirmed")
+        write_facts_and_chapters(bid)
+        write_dev_table(bid)
+        human_confirm(bid, "writing")
+        return bid
+
+    # (a) 正例：注入禁标串并登记到 identity_ban → ②-B 命中，rc=1
+    bid = prep(["合成建设集团"])
+    ch0 = bid / "05_chapters" / "n-1001.md"
+    ch0.write_text(ch0.read_text(encoding="utf-8")
+                   + "\n本方案由合成建设集团[[F:qual-001]]编制。\n", encoding="utf-8")
+    _patch_json(bid / "01c_format-outline.json",
+                lambda d: d.setdefault("typography", {}).update(identity_ban=["合成建设集团"]))
+    r = run_py(CC, "--bid", str(bid), "--mode", "B")
+    check("T4-9a ②-B 暗标命中 05_chapters → rc=1",
+          r.returncode == 1 and "暗标终检" in r.stdout and "合成建设集团" in r.stdout,
+          "rc=%s %s" % (r.returncode, r.stdout[-300:]))
+    rep = ""
+    p = bid / "06_compliance" / "compliance-report.md"
+    if p.exists():
+        rep = p.read_text(encoding="utf-8")
+    check("T4-9b 命中写入 compliance-report.md（留痕可追溯）",
+          "暗标标识命中[正文]" in rep and "n-1001.md" in rep,
+          "report tail=%s" % rep[-200:])
+
+    # (c) 负例：identity_ban 为空 → 只提示补录，不误伤（rc 不因暗标抬升）
+    bid = prep([])
+    ch0 = bid / "05_chapters" / "n-1001.md"
+    ch0.write_text(ch0.read_text(encoding="utf-8")
+                   + "\n本方案由合成建设集团[[F:qual-001]]编制。\n", encoding="utf-8")
+    _patch_json(bid / "01c_format-outline.json",
+                lambda d: d.setdefault("typography", {}).update(identity_ban=[]))
+    r = run_py(CC, "--bid", str(bid), "--mode", "B")
+    check("T4-9c identity_ban 空 → 提示补录且不误伤",
+          "identity_ban 为空" in r.stdout and "暗标终检：❌" not in r.stdout,
+          "rc=%s %s" % (r.returncode, r.stdout[-300:]))
+
+    # (d) 非暗标项目不做匹配（bid_mode=normal）
+    bid = mk_synth()
+    _patch_json(bid / "00_metadata.json", lambda m: m.update(bid_mode="normal"))
+    ra(bid, "--run")
+    human_confirm(bid, "plan_confirmed")
+    ra(bid, "--run")
+    human_confirm(bid, "check_confirmed")
+    write_facts_and_chapters(bid)
+    write_dev_table(bid)
+    human_confirm(bid, "writing")
+    _patch_json(bid / "01c_format-outline.json",
+                lambda d: d.setdefault("typography", {}).update(identity_ban=["合成建设集团"]))
+    r = run_py(CC, "--bid", str(bid), "--mode", "B")
+    # 注意：文末固定文案含「暗标终检」四字（人工 G5 清单），故断言用机器结语行的完整前缀
+    check("T4-9d bid_mode=normal 不启用暗标匹配（无误伤）",
+          "暗标终检：" not in r.stdout and "暗标标识命中" not in r.stdout,
+          "rc=%s %s" % (r.returncode, r.stdout[-300:]))
+
+
 def main():
     try:
-        for fn in (t4_1, t4_3, t4_4, t4_5, t4_6, t4_7):
+        for fn in (t4_1, t4_3, t4_4, t4_5, t4_6, t4_7, t4_8, t4_9):
             print("\n== %s ==" % fn.__name__)
             fn()
     finally:
@@ -440,7 +574,7 @@ def main():
             shutil.rmtree(b, ignore_errors=True)
     failed = [r for r in results if not r[1]]
     print()
-    print("阶段 4 回归（T4-1~T4-7）：共 %d 项，通过 %d，失败 %d"
+    print("阶段 4 回归（T4-1~T4-9）：共 %d 项，通过 %d，失败 %d"
           % (len(results), len(results) - len(failed), len(failed)))
     if failed:
         print("\n失败明细：")

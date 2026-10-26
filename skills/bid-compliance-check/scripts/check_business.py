@@ -279,6 +279,29 @@ def amount_to_yuan_b(raw):
     return None
 
 
+def gate_a(bid):
+    """②-A M8 入口闸门（形态对齐 ④ `_common.gate()` / `check_compliance.mode_b`）：
+    缺一即拒，rc=2，零产物。唯一必需前置＝`03c_business-forms.json`（① 产出）。
+
+    注意：本脚本不验 stage——它是 ②-A 的**子检查**，stage 由 `check_compliance --mode A`
+    的 `gate_a()` 统一把关，避免同一关卡两处判定的口径漂移。
+    """
+    banner = "【执行阻断】bid-compliance-check · M8 商务表检查（②-A）未执行"
+    p03c = os.path.join(bid, "03c_business-forms.json")
+    if not os.path.exists(p03c):
+        return 2, [banner,
+                   "原因：缺 03c_business-forms.json（商务表框架，① bid-response-plan 产出）",
+                   "处置：请先执行 ① bid-response-plan（python skills/bid-response-plan/scripts/build_bid_plan.py --bid <项目>/bid）后重试"]
+    try:
+        with open(p03c, encoding="utf-8") as f:
+            json.load(f)
+    except (json.JSONDecodeError, OSError) as e:
+        return 2, [banner,
+                   f"原因：03c_business-forms.json 不可解析：{e}",
+                   "处置：重跑 ① bid-response-plan 修复该产物后重试"]
+    return 0, []
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--bid", required=True, help="项目 bid 目录")
@@ -288,6 +311,12 @@ def main():
 
     if args.mode == "B":
         return mode_b_business(bid)
+
+    rc, msgs = gate_a(bid)
+    for m in msgs:
+        print(m)
+    if rc != 0:
+        return rc  # 缺件：阻断，零产物（此时不得创建 06_compliance/）
 
     p03c = os.path.join(bid, "03c_business-forms.json")
     p01c = os.path.join(bid, "01c_format-outline.json")

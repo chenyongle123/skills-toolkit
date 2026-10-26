@@ -627,6 +627,39 @@ def mode_b(bid):
     with open(os.path.join(out_dir, "deviation-table.md"), "w", encoding="utf-8") as f:
         f.write("\n".join(md))
 
+    # ---------- 暗标终检（v0.5.2 机检化；判据与 ④ verify_docx 一致）----------
+    # 对象＝05_chapters/*.md（此时尚未导出，早于 ④ 的 docx/pdf 层检查发现标识串）。
+    # 铁律 3：暗标项目全文不得出现投标人名称、标识、人员姓名及其他可识别信息。
+    blind_errs, blind_notes = [], []
+    try:
+        _fmt = load(os.path.join(bid, "01c_format-outline.json"))
+    except (OSError, json.JSONDecodeError) as e:
+        _fmt = {}
+        blind_notes.append(f"01c_format-outline.json 不可解析，暗标词条无法读取：{e}")
+    identities = [s for s in (((_fmt.get("typography") or {}).get("identity_ban")) or [])
+                  if str(s).strip()]
+    if meta.get("bid_mode") == "blind":
+        if not identities:
+            blind_notes.append("identity_ban 为空（01c.typography）：未做暗标词匹配，"
+                               "请先在 01c 补录投标人标识串（公司名/人名/商标等）后重跑")
+        else:
+            _ch_dir = os.path.join(bid, "05_chapters")
+            for fn in sorted(os.listdir(_ch_dir)) if os.path.isdir(_ch_dir) else []:
+                if not fn.endswith(".md"):
+                    continue
+                try:
+                    with open(os.path.join(_ch_dir, fn), encoding="utf-8") as fh:
+                        raw = fh.read()
+                except OSError:
+                    continue
+                body = re.sub(r"^---\n.*?\n---\n", "", raw, flags=re.S)  # 去 YAML frontmatter
+                for ident in identities:
+                    for ln, line in enumerate(body.splitlines(), 1):
+                        if ident in line:
+                            blind_errs.append(
+                                f"暗标标识命中[正文] {fn}·第{ln}行：{ident}"
+                                f"（内容修改归 ③；位图型扫描件无文本层，另须人工抽检）")
+
     # compliance-report.md 追加 ②-B 节（保留 ②-A 记录，追加不覆盖）
     with open(os.path.join(out_dir, "compliance-report.md"), "a", encoding="utf-8") as f:
         f.write("\n\n## 十一、②-B 成稿响应复查（v0.4.0，stage=rechecking）\n\n")
@@ -641,6 +674,15 @@ def mode_b(bid):
                 f.write(f"  - {st_}：{cid_}（{ch_}）{note_}\n")
         f.write(f"- B 偏离表：{'阻断（08_business/deviation-table.md 缺失）' if b_blocked else f'错误 {len(errs)} 项、废标级负偏离 {len(fatal_neg)} 项（明细见 deviation-table.md）'}\n")
         f.write(f"- F 类（②-A 结论复核，不重判）：{f_status}——{f_detail[:120]}\n")
+        if meta.get("bid_mode") == "blind":
+            f.write(f"- 暗标终检（机检：05_chapters 全文 vs identity_ban {len(identities)} 串）："
+                    f"{'❌ 命中 ' + str(len(blind_errs)) + ' 处' if blind_errs else '✅ 无命中'}\n")
+            for e in blind_errs[:20]:
+                f.write(f"  - ❌ {e}\n")
+            if len(blind_errs) > 20:
+                f.write(f"  - ……（共 {len(blind_errs)} 处）\n")
+            for n in blind_notes:
+                f.write(f"  - ⚠️ {n}\n")
 
     print(f"②-B 检查完成 → {out_dir}")
     print(f"  A-lite：已响应 {n_ok}／响应不足 {n_ins}／未响应 {n_no}／证据类 {n_ev}（{len(tri)} 张卡）")
@@ -648,12 +690,93 @@ def mode_b(bid):
         print(f"  ⚠️ 草稿章 {len(drafts)}/{len(chapters)}（status≠final，未过 ③ 步 5 复核；②-B 不阻断，④ 导出硬阻断）")
     print(f"  B 偏离表：{'阻断（08_business 缺 filled 表）' if b_blocked else f'错误 {len(errs)}、废标级负偏离 {len(fatal_neg)}'}")
     print(f"  F 类：{f_status}｜G5 前须逐条处置 ②-A 遗留 expired 项")
+    if meta.get("bid_mode") == "blind":
+        if blind_errs:
+            print(f"  暗标终检：❌ 命中 {len(blind_errs)} 处（05_chapters 正文含 identity_ban 标识串）")
+            for e in blind_errs[:5]:
+                print("    -", e)
+            if len(blind_errs) > 5:
+                print(f"    ……（共 {len(blind_errs)} 处，完整清单见 compliance-report.md / deviation-table.md）")
+        else:
+            print(f"  暗标终检：✅ 无命中（{len(identities)} 串已扫 05_chapters 全文）")
+        for n in blind_notes:
+            print("   ⚠️", n)
     print("  C 类一致性：另跑 python scripts/check_consistency.py --bid <bid>（全套件唯一实现）")
     print("下一步：G5 成稿终检（人工：背对背复核差异清单闭环、跨章不一致、暗标终检、独立性自查）")
     print("关卡：G5（人工确认后改写 stage → recheck_confirmed，再调用 bid-docx-export（④））")
     print("回退：重大未响应/跨章不一致 → stage 改回 writing 交 ③ 改正文（≤2 轮，耗尽置 exhausted）")
-    rc = 0 if (not errs and not fatal_neg and not b_blocked and n_no == 0 and n_ins == 0) else 1
+    rc = 0 if (not errs and not fatal_neg and not b_blocked and n_no == 0
+               and n_ins == 0 and not blind_errs) else 1
     return rc
+
+
+def gate_a(bid):
+    """②-A 入口闸门（形态对齐 ④ `_common.gate()` / 本文件 `mode_b`）：缺一即拒，rc=2，零产物。
+
+    依据 `references/流水线交接约定.md` L92：stage=plan_confirmed（checking 为②-A 重跑态）；
+    前置＝`01` / `01b` / `01c` / `03_bid-plan.json` / `04_outline.json` / `02_facts`。
+    """
+    banner = "【执行阻断】bid-compliance-check（②-A）未执行"
+    stages = ("plan_confirmed", "checking")
+    hint = {
+        "reviewed": "尚未生成任务卡；请先执行 ① bid-response-plan 产出 01b/01c/03/04 后重试",
+        "facts_confirmed": "① 已过 G2、尚未出任务卡；请先执行 ① bid-response-plan 后重试",
+        "planning": "① 正在生成中；请待其产出 01b/01c/03/04 并过 G1 后重试",
+        "check_confirmed": "已过 G3，下一步 ③ bid-technical-proposal 写正文；②-A 已完成无需重跑",
+        "route_confirmed": "③ bid-technical-proposal 写作中（已过首章 G4）",
+        "writing": "已进入成稿阶段；成稿检查请用 ②-B（`--mode B`）",
+        "rechecking": "②-B 执行中；成稿检查请用 ②-B（`--mode B`）",
+        "recheck_confirmed": "已过 G5，下一步 ④ bid-docx-export 导出",
+        "exported": "④ 已导出完成",
+    }
+
+    pmeta = os.path.join(bid, "00_metadata.json")
+    if not os.path.exists(pmeta):
+        return 2, [banner,
+                   "原因：缺 00_metadata.json（流水线状态载体，⓪ 出口产出）",
+                   "处置：请先执行 ⓪ tender-document-review，再依次执行 ① bid-response-plan"]
+    try:
+        with open(pmeta, encoding="utf-8") as f:
+            meta = json.load(f)
+    except (json.JSONDecodeError, OSError) as e:
+        return 2, [banner,
+                   f"原因：00_metadata.json 不可解析：{e}",
+                   "处置：重跑 ⓪ tender-document-review 修复该产物后重试"]
+
+    stage = meta.get("stage")
+    if stage not in stages:
+        msg = hint.get(stage, f"未知 stage：{stage!r}（请核对 references/流水线交接约定.md 的 stage 表）")
+        return 2, [banner,
+                   f"原因：stage={stage!r}，②-A 要求 plan_confirmed（checking 为 ②-A 重跑态）",
+                   f"处置：{msg}"]
+
+    missing = [p for p in ("01_tender-facts.json", "01b_spec-items.json",
+                           "01c_format-outline.json", "03_bid-plan.json",
+                           "04_outline.json")
+               if not os.path.exists(os.path.join(bid, p))]
+    if missing:
+        return 2, [banner,
+                   f"原因：前置产物缺件；当前 stage={stage}",
+                   "缺少产物："] + ["  - " + p for p in missing] + [
+                   "处置：缺 01b/01c/03/04 先跑 ① bid-response-plan（python skills/bid-response-plan/scripts/build_bid_plan.py --bid <项目>/bid）；"
+                   "缺 01 先跑 ⓪ tender-document-review"]
+
+    for p in ("01_tender-facts.json", "01b_spec-items.json", "01c_format-outline.json",
+              "03_bid-plan.json", "04_outline.json"):
+        try:
+            json.load(open(os.path.join(bid, p), encoding="utf-8"))
+        except (json.JSONDecodeError, OSError) as e:
+            return 2, [banner,
+                       f"原因：{p} 不可解析：{e}",
+                       "处置：重跑产出该文件的技能修复后重试"]
+
+    # 02_facts：交接约定「可缺，缺则 blocked_by_facts 并显式告警」——⚠️ 不阻断
+    warns = []
+    if not any(os.path.exists(os.path.join(bid, f))
+               for f in ("02_facts.md", "02_facts.yaml", "02_facts.json")):
+        warns.append("⚠️ 缺 02_facts.(md|yaml|json)——涉及事实库的任务卡将置 blocked_by_facts"
+                     "（交接约定：可缺但须显式告警，不得按「默认就绪」处理）")
+    return 0, warns
 
 
 def main():
@@ -665,6 +788,12 @@ def main():
 
     if args.mode == "B":
         return mode_b(bid)
+
+    rc, msgs = gate_a(bid)
+    for m in msgs:
+        print(m)
+    if rc != 0:
+        return rc  # 缺件：阻断，零产物（此时不得创建 06_compliance/）
 
     p01 = os.path.join(bid, "01_tender-facts.json")
     p03 = os.path.join(bid, "03_bid-plan.json")

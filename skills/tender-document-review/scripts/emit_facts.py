@@ -48,7 +48,7 @@ from pathlib import Path
 SCHEMA_VERSION = "0.4"
 CONTRACT_SCHEMA_VERSION = "0.4"
 DEFAULT_RULE_SEQ = 10
-FALLBACK_SKILL_VERSION = "1.5.0"
+FALLBACK_SKILL_VERSION = "1.5.2"  # 兜底：SKILL.md 版本不可解析时写入的产物版本号，须随技能版本同步 bump
 
 ROOT_REQUIRED = [
     "schema_version", "contract_schema_version", "source_skill_version", "source_rule_seq",
