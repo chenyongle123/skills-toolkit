@@ -31,7 +31,7 @@ run "validate_contract (C1–C13)"        "$PY" tests/validate_contract.py
 run "stage1 regression (32 项)"          "$PY" tests/test_stage1_regression.py
 run "stage2 regression (73 项)"          "$PY" tests/test_stage2_regression.py
 run "stage3 regression (74 项)"          "$PY" tests/test_stage3_regression.py
-run "stage4 regression (44 项)"          "$PY" tests/test_stage4_regression.py
+run "stage4 regression (60 项)"          "$PY" tests/test_stage4_regression.py
 run "stage5 regression (28 项)"          "$PY" tests/test_stage5_regression.py
 run "stage6 regression (14 项)"          "$PY" tests/test_stage6_regression.py
 run "check_knowledge (K1–K9) 空库绿"     "$PY" tests/check_knowledge.py

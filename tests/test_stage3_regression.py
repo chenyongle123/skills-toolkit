@@ -426,7 +426,7 @@ def _inject_dirty(b):
     set_docx_part(b, "docProps/core.xml", core)
     app = docx_part(b, "docProps/app.xml")
     app = app.replace("</Properties>",
-                      "<Company>%s</Company><Template>C:\\Users\\z\\AppData\\t.docx</Template>"
+                      "<Company>%s</Company><Template>C:\\Users\\tester\\AppData\\t.docx</Template>"
                       "</Properties>" % BLIND_NAME)
     set_docx_part(b, "docProps/app.xml", app)
 
