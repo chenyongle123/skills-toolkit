@@ -23,5 +23,7 @@ jobs:
           python tests/test_stage5_regression.py
           python tests/test_stage6_regression.py
           python tests/check_knowledge.py
+      - name: 提交红线机检（扫全量被跟踪文件，防真实指代入库）
+        run: python tests/check_redline_scan.py
       - name: 确认无 lock 漂移（校验不应改动 skills-lock.json）
         run: git diff --exit-code -- skills-lock.json

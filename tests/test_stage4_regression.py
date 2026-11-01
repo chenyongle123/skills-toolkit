@@ -43,12 +43,24 @@ ED = ROOT / "skills" / "bid-docx-export" / "scripts" / "export_docx.py"
 CB = ROOT / "skills" / "bid-compliance-check" / "scripts" / "check_business.py"
 
 results = []
+skipped = []
 TMP_BIDS = []
+
+# 01b 数据源：repo/v1.7.52 起外置、不入库（含真实招标条目，属红线）。
+# 本机留存该文件；CI／公开环境克隆下来没有它时，依赖真 01b 条数的断言必须
+# 显式"未检"，不得判 FAIL（会让 CI 恒红），更不得判 PASS（等于假装通过）。
+SPEC_DATA = ROOT / "skills" / "bid-response-plan" / "assets" / "01b-spec-items.json"
 
 
 def check(name, ok, detail=""):
     results.append((name, ok, detail))
     print("%s  %s%s" % ("PASS" if ok else "FAIL", name, ("　— " + detail) if detail and not ok else ""))
+
+
+def skip(name, why):
+    """数据源缺失时不检：既不计通过、也不计失败，但必须留痕并计入汇总。"""
+    skipped.append((name, why))
+    print("SKIP  %s　— %s" % (name, why))
 
 
 def run_py(script, *args):
@@ -314,7 +326,12 @@ def t4_1():
           r.returncode == 0 and "deviation-table" in out and "人工落点" in out, out[-300:])
     # --- 模拟人工偏离表（真 01b 逐条）→ ②-B 双脚本 ---
     n_rows = write_dev_table(bid)
-    check("T4-1n 偏离表与 01b 同条数（1266）", n_rows == 1266, "n_rows=%s" % n_rows)
+    if not SPEC_DATA.exists():
+        skip("T4-1n 偏离表与 01b 同条数",
+             "01b 数据源 %s 不在仓库内（外置、本机留存）——本项未检，不得视为已通过"
+             % SPEC_DATA.name)
+    else:
+        check("T4-1n 偏离表与 01b 同条数（1266）", n_rows == 1266, "n_rows=%s" % n_rows)
     r = ra(bid, "--run")
     out = r.stdout
     check("T4-1o ②-B 段推进 rc=0（check_facts＋mode B＋consistency）",
@@ -639,13 +656,17 @@ def main():
             shutil.rmtree(b, ignore_errors=True)
     failed = [r for r in results if not r[1]]
     print()
-    print("阶段 4 回归（T4-1~T4-9）：共 %d 项，通过 %d，失败 %d"
-          % (len(results), len(results) - len(failed), len(failed)))
+    print("阶段 4 回归（T4-1~T4-9）：共 %d 项，通过 %d，失败 %d，未检 %d"
+          % (len(results), len(results) - len(failed), len(failed), len(skipped)))
     if failed:
         print("\n失败明细：")
         for name, _, detail in failed:
             print("  FAIL %s　— %s" % (name, detail))
         return 1
+    if skipped:
+        print("\n未检明细（数据源缺失，不得视为已通过）：")
+        for name, why in skipped:
+            print("  SKIP %s　— %s" % (name, why))
     return 0
 
 
