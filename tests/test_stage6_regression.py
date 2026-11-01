@@ -115,7 +115,10 @@ def main() -> int:
                                "--ids", "qual-001,perf-001"])
         snap = bid / "02_facts.yaml"
         text = snap.read_text(encoding="utf-8") if snap.is_file() else ""
-        check("T6-1 快照 rc=0 且文件在位", rc == 0 and snap.is_file(), "rc=%s" % rc)
+        # detail 带上被调脚本的输出尾部：CI 日志正文不可读时，可经 ::error::
+        # annotation 直接看到真实报错（2026-11-01 定位手段）。
+        check("T6-1 快照 rc=0 且文件在位", rc == 0 and snap.is_file(),
+              "rc=%s | %s" % (rc, out.strip().splitlines()[-1][:300] if out.strip() else "(无输出)"))
         check("T6-1 schema_version＋双复核位注释",
               'schema_version: "0.1"' in text and "复核位①" in text and "复核位②" in text)
         check("T6-1 选中条目逐字拷贝（id/cert_no/合同号引号形态）",
