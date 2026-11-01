@@ -16,6 +16,8 @@ jobs:
       # 2026-11-01：原为单个 run 块内串跑 8 条命令，失败时整块只报 exit 1，
       # 无法定位是哪一条（CI #1/#2/#3 均因此查不到具体失败命令）。
       # 拆为独立 step，使失败命令在 Actions 页面直接可见。
+      - name: Python 3.11 兼容扫描（本机 3.13 跑不出、CI 3.11 会 SyntaxError）
+        run: python tests/check_py311_compat.py
       - name: 契约闸门（C1–C13）
         run: python tests/validate_contract.py
       - name: 阶段 1 回归

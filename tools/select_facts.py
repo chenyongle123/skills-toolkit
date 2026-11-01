@@ -152,15 +152,25 @@ def emit_entry(entry, section):
     """单条 → yaml 文本（逐字段按契约顺序，值 token 原样拷贝，is_decisive 置 false）。"""
     lines = [f"  - id: {entry['id']}"] if "id" in entry else ["  - "]
     known = set(SECTION_FIELDS[section]) | set(COMMON_FIELDS) | {"id"}
+
+    def val(k):
+        """空值写成一对双引号（YAML 空串）。
+
+        值先在函数里算好、再由 f-string 插值——**不能**写成
+        `f"{entry[k] if ... else '\\"\\"'}"`：f-string 的 {} 内出现反斜杠在
+        Python 3.11 及更早在**语法层**就报错（PEP 701 到 3.12 才放开），
+        CI 的 python-version 是 3.11，而开发机是 3.13，本机跑通不代表 CI 跑通。
+        """
+        return entry[k] if entry[k] != "" else '""'
     for k in SECTION_FIELDS[section]:
         if k in entry:
-            lines.append(f"    {k}: {entry[k] if entry[k] != '' else '\"\"'}")
+            lines.append(f"    {k}: {val(k)}")
     for k in COMMON_FIELDS:
         if k in entry:
-            lines.append(f"    {k}: {entry[k] if entry[k] != '' else '\"\"'}")
+            lines.append(f"    {k}: {val(k)}")
     for k in entry:                      # 未知字段原序保留（母库怎么写就怎么拷）
         if k not in known:
-            lines.append(f"    {k}: {entry[k] if entry[k] != '' else '\"\"'}")
+            lines.append(f"    {k}: {val(k)}")
     lines.append("    is_decisive: false")
     return "\n".join(lines)
 

@@ -4,6 +4,32 @@
 
 Tag 约定：技能版本 tag 为 `技能名/vX.Y.Z`；仓库级变更 tag 为 `repo/vX.Y.Z`。
 
+## [repo/v1.7.56] - 2026-11-01
+
+> **修 CI 恒红的第二个根因：f-string 的 PEP 701 写法在 Python 3.11 是语法错误**。本轮不改动任何技能代码，技能版本号全部维持 v1.7.55 已发布值。
+
+### Fixed
+
+- **现象**：v1.7.55 修完行尾问题后，CI **#4／#5／#6 仍全部失败**，失败点固定在 stage6。
+- **定位过程**（CI 日志正文需登录/JS 才可读，本机看不到）：
+  1. 把 `ci.yml` 中串跑 8 条命令的单个 `run` 块**拆成独立 step** → 定位到 `step:10`＝阶段 6 回归；
+  2. 给 stage6 的失败项加 `::error::` annotation 输出 → 得到 **9 条失败项**全文；
+  3. 在 T6-1 的 detail 里附上被调脚本输出尾部 → 拿到真因：**`SyntaxError: f-string expression part cannot include a backslash`**。
+- **根因**：`tools/select_facts.py:157/160/163` 在 f-string 的 `{}` 内写转义引号 `'\"\"'`。这是 **PEP 701** 才放开的写法（**Python 3.12+**）；开发机 Python **3.13** 正常运行，**CI 的 `python-version: "3.11"` 在语法层直接报错** → `select_facts.py` rc=1 → 快照未生成 → T6-1 起 9 项连带失败。**这类问题在本机永远跑不出来。**
+- **修复**：新增 `val(k)` 先算好值、再由 f-string 插值。行为等价——空值仍输出 `""`（已用 `emit_entry` 探针验证）。
+
+### Added
+
+- **`tests/check_py311_compat.py`**：Python 3.11 兼容扫描（零三方依赖，rc 0/1），已纳入 CI。检项：**C1** f-string `{}` 内反斜杠、**C2** `{}` 内与外层同型引号、**C3** 已知 3.12+/3.13+ API 清单（`itertools.batched`／`Path.walk()`／`os.process_cpu_count`／PEP 695 `type` 语句／`typing.override`）。
+- **已知局限**：C1/C2 为逐行状态机近似解析，**不覆盖嵌套与多行 f-string**，可能漏报；它拦的是"高频踩坑"，**不等于完整的 3.11 语法校验**，权威判定仍以 CI 上真实 3.11 解释器为准。
+- **CI 三项改动（保留，均用于可诊断性）**：① 回归命令拆为独立 step（否则整块只报 exit 1，无法定位是哪一条）；② stage6 失败项在 `GITHUB_ACTIONS` 下输出 `::error::` annotation（日志正文不可读时，annotation 是唯一可见通道）；③ T6-1 详情附被调脚本输出尾部。
+
+### Evidence
+
+- 兼容扫描：正式扫描 **62 个 .py，命中 0，rc=0**；负例（临时植入 f-string 反斜杠）→ 命中 **C1**、rc=1，探针已删除并复跑 rc=0。
+- 本机 stage6 **14/14 rc=0**；`emit_entry` 空值仍输出 `""`（行为等价探针）。
+- 前序根因（行尾）修复已生效：CI #4 起 `validate_contract` 不再报 C2/C12（该步已转绿）。
+
 ## [repo/v1.7.55] - 2026-11-01
 
 > **修 CI 恒红的根因：行尾（CRLF／LF）不统一导致 schema 哈希三处不一致**。本轮不改动任何技能代码，技能版本号全部维持 v1.7.54 已发布值。
