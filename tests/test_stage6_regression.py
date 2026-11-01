@@ -19,6 +19,7 @@
 """
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 import sys
@@ -36,6 +37,10 @@ def check(name, ok, detail=""):
     results.append((name, ok, detail))
     print("%s  %s%s" % ("PASS" if ok else "FAIL", name,
                         ("　— " + detail) if detail and not ok else ""))
+    # 2026-11-01：CI 日志正文需登录/JS 才可读，失败项在 Actions 页面看不到。
+    # 在 GitHub Actions 中额外输出 ::error:: —— 它会成为页面可见的 annotation。
+    if not ok and os.environ.get("GITHUB_ACTIONS") == "true":
+        print("::error::%s — %s" % (name, detail or "(无详情)"))
 
 
 def run_py(script, args):
