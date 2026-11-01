@@ -96,7 +96,16 @@ def err(code: str, msg: str) -> None:
 
 
 def sha256(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+    """内容哈希——**行尾规范化为 \\n 后再计算**。
+
+    2026-11-01 事故：本机 `core.autocrlf=true` 使工作树检出为 CRLF，仓库 blob
+    与 Linux CI 检出为 LF，同一文件两处字节不同；而 autocrlf 在比较时会自动
+    规范化，导致 `git status` 显示"干净"、本机 C2/C12 全绿而 CI 恒 FAIL
+    （`tender-facts.schema.json`：lock 15a54931-CRLF vs CI 实读 2c5ed005-LF）。
+    行尾不属于"内容"，故统一规范化后再哈希，使
+    **工作树 / 仓库 blob / CI 检出三处哈希一致**。
+    """
+    return hashlib.sha256(path.read_bytes().replace(b"\r\n", b"\n")).hexdigest()
 
 
 def read_version(skill: str) -> str:

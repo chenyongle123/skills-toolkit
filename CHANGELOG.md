@@ -4,6 +4,28 @@
 
 Tag 约定：技能版本 tag 为 `技能名/vX.Y.Z`；仓库级变更 tag 为 `repo/vX.Y.Z`。
 
+## [repo/v1.7.55] - 2026-11-01
+
+> **修 CI 恒红的根因：行尾（CRLF／LF）不统一导致 schema 哈希三处不一致**。本轮不改动任何技能代码，技能版本号全部维持 v1.7.54 已发布值。
+
+### Fixed
+
+- **现象**：远端重建后 CI 两次运行**全部失败**（#1 `4212161`、#2 `40534c2`，均 8–9 秒挂），而本机 `validate_contract` 恒绿。
+- **根因**：本机仓库 `core.autocrlf=true`，`assets/tender-facts.schema.json` 等工作树检出为 **CRLF（9914 字节）**，仓库 blob 与 Linux CI 检出为 **LF（9749 字节）**；`skills-lock.json` 记录的哈希是 **CRLF 版本 `15a54931`**，CI 实读 LF 得到 `2c5ed005` → **C2「与 lock 不一致」＋ C12「同版本异内容」→ rc=1**，并连带 stage5（T5-8 依赖契约全绿）rc=1。
+- **该差异被 git 自身掩盖**：autocrlf 在比较时会自动规范化，`git status` 显示"干净"——**只看本机永远发现不了**，必须做等价 CI 复现才能暴露。
+- **三处修复**：
+  1. 新增 `.gitattributes`：`* text=auto eol=lf`，所有平台一律以 LF 检出／入库（优先级高于 `core.autocrlf`）。强制重新检出后，被跟踪文件中含 CRLF 的数量 **56 → 0**，工作树字节与仓库 blob 完全一致。
+  2. `tests/validate_contract.py` 的 `sha256()` 改为**行尾规范化后再哈希**（`\r\n` → `\n`）。行尾不属于"内容"，不应影响契约判定；改后工作树／仓库 blob／CI 检出三处哈希一致。
+  3. `skills-lock.json` 中 `tender-facts.schema.json` 的 hash 由 `15a54931`（CRLF 时代）校正为 `2c5ed005`（规范化口径），随后由 `--write-lock` 机器重新生成。**未 bump `schema_version`（仍 0.4）**——内容语义未变，只是哈希口径迁移，历史产物兼容不受影响。
+
+### Evidence
+
+- **等价 Linux CI 复现方法**：`git -c core.autocrlf=false clone <本仓库> <dir>`（禁用 CRLF 转换，等同 ubuntu runner 检出），再按 `.github/workflows/ci.yml` 逐步执行。
+- **修复前**（该复现环境）：`validate_contract` **rc=1**、stage1–4/6 **rc=0**、stage5 **rc=1**。
+- **修复后**（同一复现环境，提交 `55918af` 后重新克隆）：`validate_contract`／stage1–6／`check_knowledge`／`check_redline_scan`／lock 漂移检查 **9 项全部 rc=0**。
+- CRLF 被跟踪文件数 **56 → 0**；`tender-facts.schema.json` 工作树 9914 → **9749 字节**，与仓库 blob 一致。
+- **过程更正**：首次复现未加 `-c core.autocrlf=false`，克隆检出为 CRLF，据此误判为「8 个 schema 全部不一致」——**复现环境失真导致的错误结论**，已废弃；上表数字均来自修正后的复现。
+
 ## [repo/v1.7.54] - 2026-11-01
 
 > **CI 适配 01b 数据外置 ＋ 红线机检纳入 CI**。本轮不改动任何技能代码，技能版本号全部维持 v1.7.53 已发布值。

@@ -1,0 +1,11 @@
+# 行尾统一为 LF（2026-11-01 定）
+#
+# 背景：本机 core.autocrlf=true 使工作树检出为 CRLF，而 Linux CI 检出为 LF，
+# 同一文件两处字节不同 → tests/validate_contract.py 的 schema 哈希校验在 CI
+# 恒 FAIL（C2「与 lock 不一致」+ C12「同版本异内容」），而本机因 autocrlf 在
+# 比较时自动规范化、git status 显示"干净"，问题被完全隐藏。
+#
+# 规则：所有文本文件在任意平台一律以 LF 检出、以 LF 入库（eol=lf 优先级高于
+# core.autocrlf），保证「工作树字节 == 仓库 blob == CI 检出字节」，
+# 从而让 skills-lock.json 的哈希在三处一致。
+* text=auto eol=lf
