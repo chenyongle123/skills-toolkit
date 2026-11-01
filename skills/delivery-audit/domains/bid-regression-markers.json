@@ -1,0 +1,19 @@
+{
+  "_usage": "投标域 M7 回归标记。用法：python scripts/scan_doc.py <投标类交付文档>.md --markers domains/bid-regression-markers.json",
+  "_caveat": "① 仅用于**投标交付/审查文档**，不用于技能自身文档（domains/bid.md 为说明性引用了禁用表述，扫它会命中，属预期）。② scope 为节标题关键词，需按被审文档实际节标题调整；未匹配到节时 scan_doc 报「未找到目标节，跳过该检查」——**不误判为通过**。③ 语义类项（承诺数字跨章、旧项目残留、雷同）不在 M7 内，由各技能脚本负责；M7 通过 ≠ 这些项已查。",
+  "checks": [
+    {
+      "id": "BID-M7-02",
+      "scope": "雷同",
+      "must_contain": ["未机检"],
+      "must_not_contain": []
+    }
+  ],
+  "global_absent_except_changelog": {
+    "phrases": [
+      "已覆盖全部章节",
+      "全文已穷尽",
+      "零遗漏"
+    ]
+  }
+}

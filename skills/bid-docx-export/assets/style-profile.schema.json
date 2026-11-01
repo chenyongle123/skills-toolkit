@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "style-profile.schema.json",
+  "title": "07_out/style-profile.yaml（④ 样式档产物契约）",
+  "description": "计划书 §8.1/§8.2。由 scripts/build_style_profile.py 从 01c.typography 生成（招标规定档逐项取招标值，空值项回落通用中文基线），非手写。tier 为实际生效档位（三档优先级不得颠倒：tender_required > client_template > baseline）；sources 逐项记录每个排版参数的实际来源，是《排版依据说明.md》的机读底稿。本 schema 为 ④ 单副本，不进 skills-lock（§5.2 矩阵）。metadata.style_source 必须与 01c.typography.source 一致，不一致记 failed_nodes 并阻断导出。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "bid_mode", "tier", "overlay_blind", "typography", "sources"],
+  "properties": {
+    "schema_version": {"const": "0.1"},
+    "bid_mode": {
+      "type": "string",
+      "enum": ["normal", "blind"],
+      "description": "照录 00_metadata.json 的 bid_mode；④ 只读不改"
+    },
+    "tier": {
+      "type": "string",
+      "enum": ["tender_required", "client_template", "baseline"],
+      "description": "实际生效档位，由 01c.typography.source 与 --template 参数共同判定"
+    },
+    "overlay_blind": {
+      "type": "boolean",
+      "description": "暗标叠加层是否生效：bid_mode=blind 时 true（assets/style-profiles/暗标叠加层.yaml）"
+    },
+    "typography": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["font_body", "size_body_pt", "line_spacing", "first_line_indent_chars", "margins_cm", "page_number", "page_limit", "identity_ban", "binding", "seal", "indent_note"],
+      "properties": {
+        "font_body": {"type": "string", "minimum": 1, "description": "正文中文字体；基线=仿宋_GB2312"},
+        "size_body_pt": {"type": "number", "minimum": 5, "maximum": 36, "description": "正文字号（pt）；小四=12"},
+        "line_spacing": {"type": "number", "minimum": 1, "maximum": 3, "description": "行距倍数；基线=1.5"},
+        "first_line_indent_chars": {"type": "number", "minimum": 0, "maximum": 4, "description": "首行缩进（字符数）；基线=2"},
+        "margins_cm": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["top", "bottom", "left", "right"],
+          "properties": {
+            "top": {"type": "number", "minimum": 1},
+            "bottom": {"type": "number", "minimum": 1},
+            "left": {"type": "number", "minimum": 1},
+            "right": {"type": "number", "minimum": 1}
+          },
+          "description": "页边距（cm）；基线=上下 2.54 / 左右 3.17"
+        },
+        "page_number": {"type": "string", "minimum": 1, "description": "页码样式（如 footer_center）；终值不得为空（空=未定，回落基线后必有值）"},
+        "page_limit": {"type": ["integer", "null"], "minimum": 1, "description": "页数上限；null=招标未载明（铁律 3：按隐含要求估算并写明依据）"},
+        "identity_ban": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "招标明令禁止出现的标识字样（照录 01c.typography.identity_ban）"
+        },
+        "binding": {"type": "string", "description": "装订要求；照录 01c，未载明留空串"},
+        "seal": {"type": "string", "description": "盖章要求；照录 01c，未载明留空串"},
+        "indent_note": {"type": "string", "description": "缩进要求的原文口径（如“首行缩进2字符”）；描述性，不参与排版参数计算"}
+      }
+    },
+    "sources": {
+      "type": "object",
+      "additionalProperties": {"type": "string", "enum": ["tender", "template", "baseline"]},
+      "description": "逐项来源：tender=招标明示（01c.typography）；template=甲方模板；baseline=通用基线（招标档空值回落）。排版依据说明.md 按此生成"
+    },
+    "generated_at": {"type": "string", "description": "生成时间，ISO 8601 含时区"},
+    "notes": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "回落记录与人工提示（如“page_limit 未载明，按隐含要求估算需人工确认”）"
+    }
+  }
+}

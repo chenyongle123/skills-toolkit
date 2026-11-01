@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "business-forms.schema.json",
+  "title": "03c_business-forms.json（商务表格框架，M8 产出）",
+  "description": "计划书 §6.2。只记结构与位置，**不含任何金额**：价格一律人工填写。表名与页码须与招标商务格式章一致；filled_file 由人填好后回填。consistency_rules 供 ② 的 D 类检查（只查一致性，不算价）。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "forms", "consistency_rules"],
+  "properties": {
+    "schema_version": {"const": "0.1"},
+    "forms": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "name", "tender_page", "chapter_id", "required_fields",
+                     "seal", "copies", "filled_file", "status"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^bf-\\d{2,}$", "description": "稳定主键"},
+          "name": {"type": "string", "description": "表名，逐字取自招标商务格式章"},
+          "tender_page": {"type": "string", "description": "原表所在页码；无分页文档填 n/a-无分页"},
+          "chapter_id": {"type": "string", "description": "落点章节 id"},
+          "required_fields": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "必填字段名（如「投标报价（大写）」「工期」「质量目标」）；只列字段名，**不填字段值、不填金额**"
+          },
+          "seal": {"type": "string", "description": "签章要求（如「法定代表人签字＋单位公章」）；未载明写「未载明」"},
+          "copies": {"type": "integer", "minimum": 1, "description": "份数"},
+          "filled_file": {"type": "string", "description": "人工填写后的文件路径（08_business/…）；未填置空串"},
+          "status": {
+            "type": "string",
+            "enum": ["blank", "filled", "checked"],
+            "description": "blank 空框架 / filled 人工已填 / checked ② 已核一致性"
+          }
+        }
+      }
+    },
+    "consistency_rules": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "一致性规则（如「大写金额 = 小写金额」「总价 = 分项合计」）；只列规则，不含具体数值"
+    }
+  }
+}

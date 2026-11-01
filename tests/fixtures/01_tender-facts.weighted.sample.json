@@ -1,0 +1,36 @@
+{
+  "schema_version": "0.4",
+  "contract_schema_version": "0.4",
+  "source_skill_version": "1.5.0",
+  "source_rule_seq": 10,
+  "project": {"name": "加权型评分回归样例（虚拟）", "no": "T-001", "purchaser": "某发包人"},
+  "meta": {"doc_source_type": "招标", "business_type": "works", "submission_form": "电子"},
+  "clauses": [
+    {"id": "c-0001", "local_no": "3.7", "item": "投标保证金",
+     "category": "③废标/否决情形", "review_stage": "waste",
+     "clause": "第二章 3.7", "page": "P22", "line": "1401",
+     "text": "……", "consequence": "否决投标", "remark": "", "note": "",
+     "price_cap_form": "", "value_state": "stated"}
+  ],
+  "scoring": {
+    "total_stated": 100,
+    "weight_basis": "商务10%+技术40%+价格50%（各100分，总分100）",
+    "items": [
+      {"id": "S-01", "item": "商务评分", "points": 100, "weight": 0.1,
+       "criteria": "响应性+企业实力+财务+资信+事故+履约", "subjective": false,
+       "required_materials": "……", "evidence": "待投标人提供", "gap": "", "owner": "商务组"},
+      {"id": "S-02", "item": "技术评分", "points": 100, "weight": 0.4,
+       "criteria": "施工组织设计+技术方案+安全质量环保进度+人员机械", "subjective": true,
+       "required_materials": "……", "evidence": "待投标人提供", "gap": "", "owner": "技术组"},
+      {"id": "S-03", "item": "报价评分", "points": 100, "weight": 0.5,
+       "criteria": "基准分90/±1%/1%/封顶100/保底60", "subjective": false,
+       "required_materials": "……", "evidence": "待投标人提供", "gap": "", "owner": "造价组"}
+    ]
+  },
+  "system_clues": [],
+  "clarifications": [],
+  "contacts": {},
+  "blind_format": {},
+  "contract_deviations": [],
+  "coverage_map": []
+}

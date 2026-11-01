@@ -1,0 +1,158 @@
+---
+name: bid-compliance-check
+version: 0.5.7
+description: 投标响应合规自检（两段式）。②-A 查任务卡与目录骨架是否覆盖全部废标项、资格项、评分点与商务表格；②-B 查成稿正文是否真的逐条响应、偏离表是否齐全、跨章数字与名称是否一致、形式要求与页数是否满足、资质证书是否过期、是否存在雷同信号。当用户说"检查废标项""做响应偏离表""形式核对""看看有没有漏响应""资质过期检查""成稿终检""雷同自查"时使用。本技能只报事实态（已响应/响应不足/未响应），不改写内容，不判定是否废标。
+---
+
+# 投标合规自检（套件第 ② 环）
+
+> **技能版本：v0.5.7（2026-10-31；**两项机检落地**：① E 类雷同自查实装 `scripts/check_similarity.py`→`06_compliance/similarity-check.md`（套话密度／无主语承诺句式堆叠／AI 味排比〔段间＋段内〕／以表代文／小标题句式复用／跨章套话重复；结构 CV 只作信息态避免常态化误报；**与历史稿相似段落⚠️不可机检**——无历史稿库，产出中显式标注「未机检，不得视为已查」）；② 新增 `scripts/check_commit_lock.py`→`commit-lock-check.md`，以 `03d_commit-lock.json` 为基准做「锁→稿」校验（数字锁偏离给「章·第N段·原文片段」、技术路线禁词、禁用自称），未启用锁时 rc=0 并明确提示未检、不阻断）。v0.5.6（2026-10-31；**用户口径固化：正文纯净性检项**）：②-B 成稿层面新增「正文纯净性」检查——成稿正文（去 frontmatter）不得夹带编纂性/说明性旁注（来源交代、行号引用、「编制说明」「装订提示」「风险提示」「核对要点」「响应对照」等），资料缺失须按招标格式留白而非写提示文字（检项落 `references/形式核对清单.md` §三；③ 侧口径见 bid-technical-proposal `references/写作规范.md` §七/§八）。源自 2026-10-30/31 某风电场项目（示例）实测反馈）。v0.5.5（2026-10-27；**Todo 10 第 3 批实测缺陷修复**：D7 ②-A 前置收紧——`gate_a()` 对 `02_facts.(md|yaml|json)` 由「仅告警不阻断」改为**缺一即拒 rc=2 零产物**（对齐交接约定 §三 L92 ②-A 前置清单；此前实现误引了 L91 ① 入口的「可缺」口径——涉事实任务卡全置 blocked_by_facts 时覆盖矩阵不可用），阻断信息含「回 ① 补录（stage 回退 facts_confirmed，≤2 轮）」处置指引；D10 `check_compliance.py --mode A` 尾部补 `skill_versions` 自登（对齐 ②-B mode_b 模板：不动 stage、登记失败仅告警不阻断本职）；D11 `check_business.py` B7 段文案动态化——去「第七章」单项目特指、补「表的章节挂接已动态化」事实〔`resolve_form_chapter` 两跳＋difflib 近邻＋`validate_forms_chapter_linkage` 一章一表，均在 ① `parse_business_forms.py`〕）。v0.5.4（2026-10-27；**Todo 10 第 2 批实测缺陷修复**：T2-B M8 商务表成稿入口门——`check_business.py --mode B` 入口自验 `00_metadata.json` 存在且 `stage∈{writing, rechecking}`，缺件或 stage 不符 rc=2 零产物（与 `check_compliance.py --mode B` 同口径，形态对齐本技能既有 `gate_a`/`mode_b`）；T2-C ②-A category 匹配规范化——覆盖矩阵按 `_norm_cell`（去首尾空白＋中西文引号）归一后比对，「② 投标资格条件」等书写变体不再整类漏检，另加零匹配告警〔01_tender-facts 条款清单非空但 ②③ 两类矩阵均空时 stdout＋报告节一双提示，纯提示不抬 rc、不改 G3 判定〕）。0.5.3（2026-10-26；**②-B 暗标终检机检化**：`check_compliance.py --mode B` 新增机器扫描——bid_mode=blind 时以 `01c.typography.identity_ban` 为词条，逐串扫 `05_chapters/*.md` 全文（去 YAML frontmatter），命中计 rc=1 并给出「文件名·行号」位置（早于 ④ 的 docx/PDF 层检查发现，避免封标前才发现）；identity_ban 为空时仅提示补录、不误伤（与 ④ verify_docx 同口径）；bid_mode=normal 不启用匹配；阶段 4 回归新增 T4-9 固化）。**入口闸门**：`check_compliance.py --mode A` 新增 `gate_a()`、`check_business.py --mode A` 新增 `gate_a()`（形态对齐 ④ `_common.gate()` 与本文件既有 `mode_b`）：缺件逐条列出后 rc=2，**且不再提前创建 `06_compliance/`**（保零产物）；`02_facts` 按交接约定「可缺但须显式告警」改为 ⚠️ 不阻断〔**v0.5.5 起该口径已废止，改为缺一即拒**〕；M8 子检查不重复验 stage，由 `check_compliance` 单一把关避免口径漂移；阶段 4 回归新增 T4-8 固化）。0.5.1（2026-10-21；专家复核批次 1–4 修复：C4 关键日期槽〔截止/开标/递交/有效期同槽多值 ⚠️ 抬 rc〕＋C1 金额同值异形死条件修复〔全部写法可归一且归一同值才放行〕＋C5 `qual_timing` 三元组契约〔`f_qual_timing = {status, items, required_facts, deadline, detail}`，④ gate 联动阻断〕＋C6 draft 章警告〔②-B 不阻断/④ 硬阻断〕＋C12 前置缺章阻断〔04_outline vs 05_chapters，rc=2〕＋C8 `check_business --mode B` 行内大小写金额等值核对）。0.5.0（阶段 5：新增 `SKILL.lite.md` L0 纯对话版轻量提示词——A 段覆盖走查／F 类资质时效三态走查／B 段成稿响应走查，每步【能力依赖：L2】+降级指令、铁律自包含、R7 状态快照；与主文件铁律逐字一致由 `validate_contract` C13 机检；计划书 §9／§11.6）。0.4.0（2026-10-20；②-B 成稿响应检查实装，阶段 2 第二步交付）。`check_compliance.py --mode B`**：入口校验（stage=writing → 执行中写回 rechecking，缺件阻断零产物）→ A-lite 任务卡成稿三态（已响应/响应不足〔残留【待填/待确认】给位置〕/未响应/证据类）→ B 偏离表逐行（人工填写落点 `08_business/deviation-table.md` × `01b` 主键对行：跳条/多行/重行/照抄〔F3〕/空白判定/负偏离废标级单列/出处断链）→ F 类复述 ②-A 结论（不重判）→ G5 指引（不自动写 recheck_confirmed）；退出码 0/1/2。**`check_consistency.py` v0.4.0**（跨章一致性全套件唯一实现）：位置粒度「章节（number title，id）· 第 N 段 · L 行：原文片段」、工期/金额同语义多值检测（组内 ≥2 值即 ⚠️）、中文大写金额归一（同值异形如 5000万元 vs 人民币伍仟万元整只记 ℹ️ 不误报）、日期先剔除防「12月」误判工期。v0.3.3 `compliance-report.schema.json` 声明 `const schema_version="0.2"`；**v0.3.2 偏离表口径改从 01b JSON 动态派生**（根治①每全量一批口令行必漂移）；v0.3.1 偏离表口径随 ① v0.5.0 同步；0.3.0 补齐 `references/` 七件；0.2.2 M8 `check_business.py`；0.2.1/0.2.2 修 X 审三硬伤；0.2.0 落地 ②-A 覆盖检查。**
+> 本版能力范围见 §七。**②-A 已实装**（读 ⓪/① 产物做覆盖闭合检查，输出 `06_compliance/`）；**②-B 已实装 v0.4.0**（成稿后响应检查：A-lite/B/F 三类机检 + C 类跨章一致性经 `check_consistency.py`；**v0.5.3 起暗标终检已机检化**〔05_chapters 全文词条匹配〕；**v0.5.7 起 E 雷同自查已机检化**〔`scripts/check_similarity.py`：单稿内部四类信号——套话密度／承诺句式堆叠／AI 味排比／以表代文／小标题句式复用／跨章套话重复；**与历史稿相似段落 ⚠️ 不可机检**（本套件无历史稿库，产出中显式标注"未机检，不得视为已查"），位图型扫描件无文本层亦需人工抽检）。
+> 受套件总则（8 条铁律）约束；流水线状态机见 `references/流水线交接约定.md`。
+
+## 一、定位与边界
+
+**一句话**：守住废标红线。**只报"未响应 / 响应不足 / 不一致"，不给"是否会被判废标"的定性结论**——判废标权在评标委员会。
+
+职责必须分两段，否则验收无法执行：
+
+| 段 | 时点 | 检查对象 | 能查什么 |
+|---|---|---|---|
+| **②-A 覆盖检查** | ① 之后（`stage = plan_confirmed`） | 任务卡、目录骨架 | 废标项/资格项/评分点在任务卡里**是否都有对应响应动作**；偏离表行是否齐全；形式字段是否齐备 |
+| **②-B 响应检查** | ③ 成稿后（`stage = writing`） | 投标文件正文、商务表 | 每个废标项在正文里**是否真的被响应**；三态判定；跨章一致性；雷同信号 |
+
+**不做**：不改写正文、不重排章节、不填偏离值以外的内容、不生成金额、不判定违规。
+
+**②③④ 一律不读招标原文**。形式要求取自已授权产物：
+
+| 形式要求 | 取自 |
+|---|---|
+| 签章位、份数、装订方式 | `01c.typography.seal` / `binding` |
+| 页数上限 | `01c.typography.page_limit` |
+| 形式类废标条款 | `01.clauses[]` 中 `review_stage = form` 的条目 |
+
+字段缺失即判 `blocked_by_contract` 并指回 ① 补抽，**不得自己翻原文**。
+
+## 二、入口校验（四步，缺一即拒）
+
+**②-A**：`stage` 必须为 `plan_confirmed`；前置 `01`、`01b`、`01c`、`03_bid-plan.json`、`04_outline.json`、`02_facts`。
+**②-B**：`stage` 必须为 `writing`；前置在 ②-A 全部之外，追加 `05_chapters/*.md`、`06_compliance/`。
+
+`01.contract_schema_version` 等值校验；`source_skill_version` semver 三档。通过后执行：
+
+- ②-A 前设**显式资格关卡**：`02_facts` 与 `source_type=qualification` 的项逐条比对，`expired` 即资格硬伤（**提示止损**——资格不合格连打分机会都没有）；`fact_missing` 属资料缺口，回退 ① 补录，**不计入废标风险条数**。
+- ②-A 出口为 **G3**：废标报告中"响应不足 / 未响应 / 需原件核对"逐条处置；通过后写 `check_confirmed`。
+- ②-B 出口为 **G5**：成稿终检（背对背复核差异清单闭环、跨章不一致、暗标终检、独立性自查）；通过后写 `recheck_confirmed`。
+
+## 三、检查类（阶段 1／2 实现）
+
+| 检查类 | ②-A | ②-B |
+|---|---|---|
+| A 废标项 | 每个废标项/资格项是否有对应响应动作 | 逐条在正文找响应位置，判三态 + 给定位 |
+| B 响应偏离表 | 行数与 `01b` 是否一致、有无合并/跳条 | 逐条填响应值判偏离；响应栏须填自身实际指标，**禁止照抄招标原文** |
+| G 评分违规识别 ★ | 是否"门槛当分卖""规模条件设门槛""倾向性参数" | 只标注为疑似控标信号，写入 `clarifications[]`，**不定性** |
+| C 形式与一致性 | 暗标 `bid_mode` 是否正确传递、页数预算是否可行 | 签章/份数/装订/页数上限；**正文纯净性（无编纂性旁注、缺资料按格式留白）**；数字/名称/工期/金额跨章一致 |
+| F 资质时效 ★ | 每项资质是否在 `02_facts`；`valid_to` 是否早于 `deadline`；是否落入换证窗口 | 只确认 ②-A 结论已逐条处置（扫描件日期一致性由 ④ 查） |
+| D 商务表齐全性 | 招标要求的表格是否都已进任务卡 | 表格齐全、必填字段留位、大小写金额一致（**只查一致性，不算价**） |
+| E 雷同自查 | `scripts/check_similarity.py`（v0.5.7） | 套话密度、无主语承诺句式堆叠、AI 味排比（段间＋段内）、以表代文、小标题句式复用、跨章套话重复；结构模板化（段落数/段长 CV）列**信息态**；**与历史稿相似段落 ⚠️ 不可机检**（无历史稿库） |
+
+**F 类资质时效四态不得混报**：`fact_missing`（事实库缺项，资料缺口，非废标）、`expired`（红色，废标风险）、`expiring_soon`（黄色，换证窗口）、`stated`（已载明且在有效期内）。**状态错了，动作就全错。**
+
+**检查类操作细则（v0.3.0 补齐，计划书 §3.5「接管」必建项）**：
+
+| 检查类 | 操作细则 |
+|---|---|
+| A 废标项 | `references/废标项比对方法.md` |
+| B 响应偏离表 | `references/响应偏离表模板.md` |
+| C 形式与一致性 | `references/形式核对清单.md`（暗标终检展开 `references/暗标匿名检查.md`） |
+| E 雷同自查 | `references/雷同自查清单.md` |
+| F 资质时效 | `references/资质时效核查.md` |
+| 漏响应扫描 | `references/判词库-投标侧.md`（派生自 ⓪ 判词库.md v1.5.0，扫描前必读） |
+
+**时间基准**：资格/业绩"近三年"等区间一律取 `00_metadata.deadline`，不以系统日期推算。
+
+## 四、铁律（八条，与 ①③④ 逐字一致）
+
+<!-- IRONLAWS:BEGIN -->
+1. **不编造事实**：业绩、人员、证书、参数、金额、工期，未见于事实库即写 `【待填：××】`；素材库内容可改写，但不得产出任何可核查事实。
+   - **扫描件不作事实来源**：营业执照、资质证书、合同扫描件只作证明材料，证书编号、有效期、合同额等一律由知识库维护人录入事实库；**AI 不得从扫描件 OCR 后直接填表**——OCR 错一位数字即构成提供虚假材料。
+   - **图文不符时以事实库为准并报警**：发现扫描件与事实库不一致，输出`待核`，不自动择一。
+2. **不改章节名与顺序**：章节名一律取自 `01c`，逐字不改；格式废标优先于得分优化。
+3. **暗标匿名与页数上限**：暗标项目全文不得出现投标人名称、标识、人员姓名及其他可识别信息；**无论是否暗标，正文 + 证据的总页数均不得超出 `01c.typography.page_limit`**（未载明上限时按招标的隐含要求估算并写明依据）。
+4. **不给法律结论**：不判定"是否废标""是否违法"，只报事实态。
+5. **不代投标人决策**：投标与否、报价几何、让不让步，不给建议。
+6. **不做未授权承诺**：技术参数、工期、售后承诺必须来自事实库或用户明示。
+7. **每段可回溯**：无来源的段落不得进入交付稿。
+8. **技术路线须有来源** ★：技术路线、实现架构、工艺选择、设备选型必须来自 `02_facts`、`02b_knowledge` 或用户明示。**AI 自行推演出的路线即使看起来合理，也不得进入交付稿**——路线错了不是改几句话能补的，只能重写。无来源时输出 `【待确认：技术路线】`，交 G4 关卡由人定。
+<!-- IRONLAWS:END -->
+
+> 反例见 `references/常见错误.md`；尤其注意反例 4（给法律结论）与三态混报。
+
+## 五、交接
+
+- 按 `references/流水线交接约定.md` 读写状态；**不得**替用户过关，**不得**在 G3/G5 未确认时写下一 stage。
+- **②-A 出口**：`check_confirmed` → `下一步：调用 bid-technical-proposal（③），输入 03_bid-plan.json + 04_outline.json`
+- **②-B 出口**：`recheck_confirmed` → `下一步：调用 bid-docx-export（④），输入 05_chapters/ + 06_compliance/`
+- 回退：②-A 事实缺口 → `facts_confirmed`（交 ① 补录），≤2 轮；②-B 重大未响应/跨章不一致 → `writing`（交 ③ 改正文），≤2 轮；耗尽置 `exhausted = true` 转人工。
+
+## 六、契约版本
+
+| 项 | 值 |
+|---|---|
+| 读取 `01` / `01b` / `01c` / `03` / `04` | `01` 为 `contract_schema_version = "0.4"`；其余 `schema_version` 见各 schema |
+| 产出 | ②-A（阶段 1 已实产）：`06_compliance/{compliance-report.md, compliance-report.json, form-check.md, business-check.md, deviation-table.md}`；②-B（v0.4.0 已实产）：`06_compliance/deviation-table.md`（②-B 模式逐行判定，覆盖写）＋ `06_compliance/consistency-issues.md`（跨章一致性）＋ `06_compliance/compliance-report.md` 追加「## 十一、②-B 成稿响应复查」节（保留 ②-A 记录追加不覆盖）；`similarity-check.md`（E 雷同，v0.5.7 起由 `check_similarity.py` 实产） |
+| 自检 | 读 `skills-lock.json`，三级降级，不阻断 |
+
+## 七、本版本能力范围（v0.5.7，E 类雷同自查机检＋承诺锁「锁→稿」校验＋正文纯净性检项）
+
+| 能力 | 状态 |
+|---|---|
+| ②-B 暗标终检（机检） | ✅ v0.5.3（`bid_mode=blind` 时按 `01c.typography.identity_ban` 逐串扫 `05_chapters/*.md`，命中计 rc=1 并给「文件名·行号」；清单为空仅提示、`normal` 模式不启用；T4-9 固化） |
+| 入口校验与阻断指路（区分 ②-A / ②-B 前置） | ✅ 已实现（②-A 验 `plan_confirmed`〔`checking` 为重跑态〕；②-B 验 `writing`〔`rechecking` 为重跑态〕，缺件阻断零产物 rc=2）。**v0.5.2 起 ②-A／M8 脚本层同形态**：`check_compliance.py --mode A` 与 `check_business.py --mode A` 各自新增 `gate_a()`，缺件逐条列出后 rc=2 且不提前创建 `06_compliance/`；`02_facts` 三形态均缺失时 **v0.5.5 起缺一即拒**（对齐交接约定 §三 L92；处置指引=回 ① 补录、stage 回退 `facts_confirmed` ≤2 轮）。**v0.5.4 起 ②-B 商务表脚本层同形态**：`check_business.py --mode B` 入口自验 `00_metadata.json` 存在且 `stage∈{writing, rechecking}`（与 `check_compliance.py --mode B` 同口径），缺件或 stage 不符 rc=2 阻断 |
+| 状态读写（`checking`/`check_confirmed`/`rechecking`/`recheck_confirmed`） | ✅ 已实现（②-B 执行中写回 `rechecking` 并登记 `skill_versions`；**v0.5.5 起 ②-A 完成时亦自登 `skill_versions`（不动 stage）**；关卡确认仍归人工，不自动写 check/recheck_confirmed） |
+| 8 条铁律与反例 | ✅ 已落地 |
+| ②-A · A 废标/资格覆盖 | ✅ v0.2.0（category②/③ 全覆盖 + 跨类否决级补充扫描 + 孤儿卡检测；**v0.5.4：category 匹配经 `_norm_cell` 归一〔去空白＋中西文引号〕，书写变体不漏检；零匹配告警〔01_tender-facts 条款非空但两类矩阵均空 → stdout＋报告双提示，不抬 rc 不改 G3〕**） |
+| ②-A · G 评分违规识别 | ✅ v0.2.0（静态关键词，只标注不定性，不判违法） |
+| ②-A · D 商务表齐全性 | ✅ v0.2.0（bf 框架 24/24 覆盖，只查一致性不算价；**表格↔任务卡一一对应由 `check_compliance.py` 唯一实现**） |
+| ②-A · M8 商务表框架检查 | ✅ v0.2.2（`scripts/check_business.py`：零金额拦截（数字+单位／货币符号／中文大写／千分位四类形态，命中即阻断并以退出码 1 报出）、`required_fields` 与 `seal` 齐备、`chapter_id` 解析到 `01c`、`consistency_rules` 三条硬性规则覆盖）；**`--mode B`（v0.5.1）成稿行内大小写金额等值核对**——同一行中文大写与数字金额归一比对，不等值即 rc=1；分项合计=总价无通用机检口径，声明人工核对 |
+| ②-A · F 资质时效 | ✅ v0.2.1（优先解析结构化 `02_facts.yaml/.json` 的 `valid_to`，退化扫描 `02_facts.md`；三态 expired/expiring_soon/stated/fact_missing，时间基准取 `00_metadata.deadline`；**v0.5.1：`qual_timing` 返回三元组（整体最坏态/明细/结构化 items），`compliance-report.json` 的 `f_qual_timing = {status, items, required_facts, deadline, detail}`——④ gate 联动阻断读此契约**） |
+| ②-A · C 形式字段齐备 | ⚠️ 部分（binding/seal 齐备性 ✅；bid_mode 传递/页数预算以信息态报出；页数上限未载明须回①确认或估算并写明依据） |
+| ②-A · B 响应偏离表 | ⚠️ 部分（bf-05/bf-19 偏离函框架在/缺判定 ✅；**逐行 vs `01b` 一致性已由 ②-B v0.4.0 实装**并经示例市 1266 条真基验证；填法细则见 `references/响应偏离表模板.md`） |
+| ②-B · A-lite 任务卡成稿三态 | ✅ v0.4.0（03 任务卡 × `05_chapters/*.md`：已响应／响应不足〔残留【待填/待确认】给章节·段落·行号位置〕／未响应〔章节文件缺失〕／证据类〔scan 卡〕）；**v0.5.1：draft 章只警告不阻断**（`status≠final` 报「草稿章 n/m」——②-B 阶段允许，④ 导出硬阻断）；**前置缺章阻断**（04_outline 节点 vs 05_chapters 文件对不上 → rc=2，回 ③ 补写） |
+| ②-B · B 偏离表逐行 | ✅ v0.4.0（人工填写落点 `08_business/deviation-table.md` × `01b` 主键对行：跳条/多行/重行/照抄〔含限定符要求值照抄＝未响应，F3〕/响应值或判定空白/负偏离废标级单列〔`no_negative_allowed` 条目〕/出处断链；非法 id 与非法判定值拦截） |
+| ②-B · F 资质时效复核 | ✅ v0.4.0（复述 ②-A `qual_timing` 结论不重判；G5 前逐条处置 expired 项） |
+| ②-B · C 跨章一致性（`scripts/check_consistency.py`，全套件唯一实现） | ✅ v0.4.0（位置粒度「章节（number title，id）· 第 N 段 · L 行：原文片段」；名称变体〔基准主干比对＋招标人行置换防误报〕/编号异值/工期与金额**同语义多值 ⚠️**〔按语义类+单位族分组，组内 ≥2 值即报〕；中文大写金额归一，同值异形只记 ℹ️ 不误报〔全部写法可归一且归一同值才放行，v0.5.1 修死条件〕；日期先剔除防「12月」误判工期；**v0.5.1：关键日期槽（截止/开标/递交/有效期）同槽多值 ⚠️ 抬 rc=1**——槽词后 40 字内取日期，排期类日期仍为信号不判；rc=1 即 G5 须闭环） |
+| ②-B · 承诺锁校验（`scripts/check_commit_lock.py`，v0.5.7） | ✅ 已实装。**锁→稿**方向，与 `check_consistency.py` 的**稿↔稿**互比互补：以 `03d_commit-lock.json`（① G2 双确认后只读）为基准，查核心数字锁偏离（给「章·第N段·原文片段」位置）／技术路线禁词／禁用自称；**未启用锁时 rc=0 并明确提示"未检，不得视为已查"**，不阻断 |
+| ②-B · E 雷同自查 | ✅ **v0.5.7 已实装**（`scripts/check_similarity.py` → `06_compliance/similarity-check.md`；单稿内部四类信号机检＋结构 CV 信息态；**与历史稿相似段落仍属 G5 人工项**——需历史稿库，套件暂无，产出 §四 显式标注"未机检，不得视为已查"；独立性自查三项〔跨企业数据隔离等〕不可机检，留 G5 勾选） |
+| 检查类操作细则（references 七件，计划书 §3.5 接管必建项） | ✅ v0.3.0（判词库-投标侧/废标项比对方法/响应偏离表模板/形式核对清单/暗标匿名检查/雷同自查清单/资质时效核查） |
+| `SKILL.lite.md`（L0 纯对话版轻量提示词，计划书 §9／阶段 5） | ✅ v0.5.0 新增（A 段覆盖走查/F 类时效三态走查〔L0 价值最高的一步〕/B 段成稿响应走查；每步【能力依赖：L2】+降级指令、铁律自包含、R7 状态快照；一致性由 `validate_contract` C13 机检） |
+
+> ②-A 运行：`python scripts/check_compliance.py --bid <项目/bid目录>`（**要求 Python ≥ 3.8**，与套件其余五个技能同基线），读取 `01/03/03c/01c/00_metadata.json`，**F 类优先读结构化 `02_facts.yaml`（无则 `02_facts.json`，再退化扫描 `02_facts.md`）**，
+> 输出 `06_compliance/{compliance-report,form-check,deviation-table}.md` + `compliance-report.json`
+> （`business-check.*` 自 v0.2.2 起移交 `check_business.py` 唯一写入，本脚本不再重复写同一落点）。
+> **只报事实态，不改写内容，不判废标**；G3 须人工逐条确认响应不足/未响应/需原件核对项后方可写 `check_confirmed`。
+>
+> **②-B 运行（v0.4.0）**：`python scripts/check_compliance.py --bid <项目/bid目录> --mode B`（**要求 Python ≥ 3.8**，与套件其余五个技能同基线）。
+> 入口：`stage=writing`（重跑态 `rechecking` 合法）；前置＝②-A 全部产物 + `05_chapters/*.md`（n-xxxx 成稿）+ `06_compliance/compliance-report.md`，缺件阻断零产物（rc=2）。
+> 执行中写回 `stage=rechecking`；**前置人工件＝`08_business/deviation-table.md`（按 `references/响应偏离表模板.md` 填写，首列条目id 须照录 `01b` 主键 sp-xxx）**，缺失时 B 类阻断（blocked_by_contract）但仍出 A-lite/F 类结果。
+> 输出：`06_compliance/deviation-table.md`（②-B 逐行判定，覆盖写）＋ `06_compliance/compliance-report.md` 追加「## 十一、②-B 成稿响应复查」节。
+> **退出码：0＝无错误项；1＝存在错误/废标级负偏离（G5 前须闭环）；2＝前置缺失（阻断）**。
+> C 类跨章一致性**另跑**：`python scripts/check_consistency.py --bid <项目/bid目录>`（全套件唯一实现，①③④ 不复制）→ `06_compliance/consistency-issues.md`，rc=1 即 G5 须逐条闭环。
+>
+> **E 类雷同自查另跑（v0.5.7）**：`python scripts/check_similarity.py --bid <项目/bid目录>` → `06_compliance/similarity-check.md`，rc=1 即 G5 须逐条闭环（命中项**重写而非换序**）。
+> ⚠️ 该脚本只检**单稿内部**信号；「与历史稿相似段落」一栏在产出中固定标注**未机检**，须人工按 `references/雷同自查清单.md` §四执行，不得因报告生成就认为已查。
+>
+> **承诺锁校验（v0.5.7）**：`python scripts/check_commit_lock.py --bid <项目/bid目录>` → `06_compliance/commit-lock-check.md`，rc=1 即 G5 须闭环。
+> 处置分两种且**不许混淆**：正文写错 → 回 ③ 改正文；**锁错了** → 回 ① 改锁并 G2 重确认（脚本**不替投标人决定取哪个值**）。
+> 未启用锁（`03d_commit-lock.json` 不存在）时 **rc=0、不阻断**，但明确打印「本项未检，不得视为已查」。
+> E 雷同自查**部分已机检化**（v0.5.7 起 `check_similarity.py` 检单稿内部四类信号；**与历史稿相似段落、独立性自查仍属 G5 人工项**）、页数核对属 G5 人工项（`references/雷同自查清单.md` / `references/形式核对清单.md`）；**暗标终检已由 v0.5.3 转为机检**（词条匹配 `05_chapters/*.md`），人工仍须按 `references/暗标匿名检查.md` 抽检页眉页脚、图片水印与 bitmaps 型证据页——这些不在文本层，机检扫不到。
+>
+> **M8 商务表专项检查（v0.2.2 新增）**：`python scripts/check_business.py --bid <项目/bid目录>`（**要求 Python ≥ 3.8**，与套件其余五个技能同基线），读 `03c` + `01c`，
+> 输出 `06_compliance/{business-check.md, business-check.json}`。检查项：
+> **B1 零金额（阻断级）**——业务语义字段（`name`/`required_fields`/`consistency_rules`）与 `seal` 中检出金额即报出并以退出码 1 结束；
+> 覆盖四类形态：数字+金额单位、货币符号、中文大写（如「壹拾贰万元整」）、千分位；`seal` 仅查强特征以放行「按前附表3.4.1」类条款号引用，
+> 并豁免 `id`/`tender_page`/`chapter_id`/`copies`/`filled_file` 等结构位置字段。
+> B2 `required_fields` 齐备、B3 `seal` 齐备、B4 `chapter_id` 解析到 `01c`、B5 `consistency_rules` 三条硬性规则覆盖。
+> **B7「表数＝招标商务格式章要求表数」② 不读招标原文、不可独立机检**，如实标注以 ① 抽取声明为准，不作无源断言。
+>
+> **C8 商务表成稿检查（v0.5.1 实装 `--mode B`）**：`python scripts/check_business.py --bid <项目/bid目录> --mode B`——读 `08_business/*.md` 人工成稿，行内「中文大写 vs 数字金额」等值核对（归一比对，不等值 rc=1；分项合计=总价属算术，声明人工）。入口同 ②-B 口径：`stage=writing`（`rechecking` 重跑态合法）；v0.5.4 起缺 `00_metadata.json` 或 stage 不符 rc=2 阻断。

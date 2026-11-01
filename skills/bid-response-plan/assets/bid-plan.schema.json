@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "bid-plan.schema.json",
+  "title": "03_bid-plan.json（任务卡，M1 产出，唯一真源）",
+  "description": "计划书 §4.1／§6.2。任务卡不只覆盖评分点：**废标项、资格项、商务表格也各占一行**（否则 ②-A 无对象可查）。source_type 四值为硬约束——**补遗对照不是第五种 source_type**，它是「要不要继续做」的输入闸门，落 `preconditions`（v0.2 新增，见计划书 §6.2）。status=ready 必须在该条所需事实全部真实命中后才置位，不得因「评分矩阵原有这一行」默认就绪。coverage.unmapped 必须为空才可交 G1。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "items", "coverage"],
+  "properties": {
+    "schema_version": {"const": "0.2"},
+    "preconditions": {
+      "type": "array",
+      "description": "策划前置判断项。**不入 items**：items 是「要写什么」的响应单元（必填 chapter_id / response_form / word_target），而前置判断不产生任何章节与篇幅，塞进去只能编造假值。`p-0001` 恒为「补遗/澄清文件对照」，按计划书 §4.1 与 §3.1，未对照即整份策划不得交 G1。v0.2 新增；不列入 required，旧文件仍合法。",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "item", "result", "blocking"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^p-\\d{4}$", "description": "稳定主键；p-0001 保留给补遗对照，不得复用"},
+          "item": {"type": "string", "description": "判断项名称。p-0001 固定写「补遗/澄清文件对照」"},
+          "result": {
+            "type": "string",
+            "enum": ["pass", "fail", "unknown"],
+            "description": "pass=已逐份核对且无需改任务卡；fail=有未处置的修改项（须改任务卡后重判）；unknown=补遗未提供或无法取得（阻断，不得按 pass 处理）"
+          },
+          "evidence": {
+            "type": "string",
+            "description": "依据：补遗文件名＋发布日期＋被修改的条款号；result≠pass 时写明缺什么。无依据即为不可信判定"
+          },
+          "blocking": {
+            "type": "boolean",
+            "description": "true 表示该项非 pass 时整份策划阻断（G1 不得通过）。p-0001 恒为 true"
+          }
+        }
+      }
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "source_type", "source_ref", "chapter_id", "response_form",
+                     "word_target", "required_facts", "owner", "status", "notes"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^t-\\d{4}$", "description": "稳定主键"},
+          "source_type": {
+            "type": "string",
+            "enum": ["scoring", "waste", "qualification", "business"],
+            "description": "四值确保评分点/废标项/资格项/商务表都有任务卡"
+          },
+          "source_ref": {
+            "type": "string",
+            "description": "来源 id：评分点 S-xx / 条款 c-xxxx / 商务表 bf-xx"
+          },
+          "chapter_id": {"type": "string", "description": "落点章节 id（取 04_outline.chapters[].id）"},
+          "response_form": {
+            "type": "string",
+            "enum": ["text", "table", "scan", "letter", "business_form"],
+            "description": "响应形式，**必填**。如「提供近三年类似业绩≥2项」应为 scan（业绩表＋合同关键页），不是 text"
+          },
+          "word_target": {"type": "integer", "minimum": 0, "description": "目标篇幅（字）；按分值权重分配，不得各章平均"},
+          "required_facts": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "所需事实 id（qual-/perf-/pers-/eq-/fin-）；空数组表示不依赖事实库"
+          },
+          "owner": {"type": "string", "description": "责任人"},
+          "status": {
+            "type": "string",
+            "enum": ["ready", "blocked_by_facts", "blocked_by_clarify"],
+            "description": "ready 须事实库真实命中后置位；blocked_by_clarify 须于投标截止前取得书面澄清并固化，不得以「等澄清」留空"
+          },
+          "notes": {
+            "type": "string",
+            "description": "预判结论/评分点与章名冲突处置/补遗对照说明等"
+          }
+        }
+      }
+    },
+    "coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scoring_total", "mapped", "unmapped"],
+      "properties": {
+        "scoring_total": {"type": "integer", "minimum": 0, "description": "01.scoring.items 条目数"},
+        "mapped": {"type": "integer", "minimum": 0, "description": "已被任务卡覆盖的评分数"},
+        "unmapped": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "未被任何任务卡覆盖的评分点 id；**必须为空才可交 G1**"
+        }
+      }
+    }
+  }
+}

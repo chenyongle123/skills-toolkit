@@ -1,0 +1,46 @@
+{
+  "schema_version": "0.4",
+  "contract_schema_version": "0.4",
+  "source_skill_version": "1.4.0",
+  "source_rule_seq": 10,
+  "project": {"name": "样例风电项目 EPC", "no": "SAMPLE-2026-001", "purchaser": "样例采购人"},
+  "meta": {"doc_source_type": "招标", "business_type": "works", "submission_form": "电子"},
+  "clauses": [
+    {
+      "id": "c-0001", "local_no": "3.2.4", "item": "最高投标限价",
+      "category": "⑤履约保证金与商务条款", "review_stage": "responsive",
+      "clause": "第二章 3.2.4", "page": "P22", "line": "1401",
+      "text": "本项目最高投标限价为 473,080,485.09 元，超过最高投标限价的投标将被否决。",
+      "consequence": "否决投标", "remark": "", "note": "",
+      "price_cap_form": "amount", "value_state": "stated"
+    },
+    {
+      "id": "c-0002", "local_no": "3.2.5", "item": "投标截止时间",
+      "category": "①时间节点与流程", "review_stage": "form",
+      "clause": "第二章 3.2.5", "page": "n/a-无分页", "line": "第 12 段",
+      "text": "投标截止时间详见招标公告。",
+      "consequence": "后果未载明", "remark": "", "note": "无分页文档",
+      "price_cap_form": "", "value_state": "external_missing"
+    }
+  ],
+  "scoring": {
+    "items": [
+      {
+        "id": "S-01", "item": "类似业绩", "points": 10, "criteria": "每提供 1 项有效业绩得 5 分，最高 10 分",
+        "subjective": false, "required_materials": "中标通知书＋合同关键页扫描件",
+        "evidence": "待投标人提供", "gap": "", "owner": "商务组"
+      },
+      {
+        "id": "S-02", "item": "施工组织设计", "points": 20, "criteria": "针对性与可行性",
+        "subjective": true, "required_materials": "施工组织设计专章",
+        "evidence": "待投标人提供", "gap": "", "owner": "技术组"
+      }
+    ]
+  },
+  "system_clues": [],
+  "clarifications": [],
+  "contacts": {},
+  "blind_format": {},
+  "contract_deviations": [],
+  "coverage_map": []
+}

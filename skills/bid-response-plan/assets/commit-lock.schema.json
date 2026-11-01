@@ -1,0 +1,74 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "03d_commit-lock 投标承诺锁（Global Commit Lock）",
+  "description": "对标文章模块 2「全局事实锁」：把**本次投标**的承诺在**写作前**锁死，由 ③ 每章写作前置注入，避免各章自由发挥后再由 ②-B 检出返工。与 02_facts（企业底盘：资质/人员/业绩）严格分离——02_facts 是「我们是什么」，本锁是「这次我们承诺什么」。",
+  "type": "object",
+  "required": ["schema_version", "project", "locks", "confirmed_at", "confirmed_by"],
+  "properties": {
+    "schema_version": { "const": "0.1" },
+    "project": {
+      "type": "object",
+      "description": "与 00_metadata.project 对齐（冗余落存，便于 ③ 单文件读取）",
+      "properties": {
+        "name": { "type": "string" },
+        "no": { "type": "string" },
+        "purchaser": { "type": "string" }
+      }
+    },
+    "locks": {
+      "type": "object",
+      "properties": {
+        "numbers": {
+          "type": "array",
+          "description": "核心数字锁：承诺工期/免费质保期/故障响应时间/到场时限/驻场团队总人数及各岗位人数等。写作期一律照抄锁定值，不得各章另写。",
+          "items": {
+            "type": "object",
+            "required": ["key", "value", "unit"],
+            "properties": {
+              "key": { "type": "string", "description": "承诺项名，如「总工期」「免费质保期」「故障响应时间」" },
+              "value": { "type": ["string", "number"], "description": "锁定值（写作期照抄）" },
+              "unit": { "type": "string", "description": "单位，如「日历天」「年」「小时」「人」" },
+              "synonyms": {
+                "type": "array",
+                "description": "同义表述词（用于正文机检匹配，如 工期→[工期, 施工工期, 总工期, 建设周期]）",
+                "items": { "type": "string" }
+              }
+            }
+          }
+        },
+        "tech_route": {
+          "type": "object",
+          "description": "技术路线锁：防「第 3 章 K8s、第 5 章裸金属」这类跨章路线打架",
+          "properties": {
+            "architecture": { "type": "string" },
+            "framework": { "type": "string" },
+            "database": { "type": "string" },
+            "deployment": { "type": "string" },
+            "forbidden": {
+              "type": "array",
+              "description": "禁用的竞争技术词（正文出现即报警）",
+              "items": { "type": "string" }
+            }
+          }
+        },
+        "naming": {
+          "type": "object",
+          "description": "命名实体锁：甲方简称、本项目系统标准全称、我方自称",
+          "properties": {
+            "purchaser_short": { "type": "string", "description": "甲方简称（如「招标人」「发包人」）" },
+            "system_full": { "type": "string", "description": "本项目系统/工程的标准全称，全篇同一写法" },
+            "self_ref": { "type": "string", "description": "我方自称：明标用「我司」／暗标强制「投标人」或「我方」" },
+            "forbidden": {
+              "type": "array",
+              "description": "禁用自称/称谓（暗标下通常含「我司」「我公司」及本单位名）",
+              "items": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "confirmed_at": { "type": "string", "description": "人工确认时间，ISO 8601 含时区" },
+    "confirmed_by": { "type": "string", "description": "确认人（G2 双确认责任人）" },
+    "notes": { "type": "string", "description": "锁定依据（如招标文件哪一条、我方决策口径）" }
+  }
+}

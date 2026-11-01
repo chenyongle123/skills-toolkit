@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "format-outline.schema.json",
+  "title": "01c_format-outline.json（格式章标题 + 排版要求）",
+  "description": "计划书 §6.2。由 ① 按接缝例外抽取：章节名**逐字照录**（不得改写、不得「美化」），排版要求抄录并注明来源。typography 前 8 个字段与 ⓪ 暗标专项 8 项一一对应；indent/binding/seal 为本套件扩展，验收时不得拿它们去对「8 项」。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "chapters", "typography"],
+  "properties": {
+    "schema_version": {"const": "0.2"},
+    "chapters": {
+      "type": "array",
+      "description": "投标文件格式章的章节名与层级，逐字照录、顺序照录",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "number", "title", "level", "page"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^n-[0-9a-f]{4}$", "description": "稳定主键"},
+          "number": {"type": "string", "description": "章序号，照录（第一章 / 1 / 一）"},
+          "title": {"type": "string", "description": "章节名，**逐字照录**；任何改写即违反铁律 2"},
+          "level": {"type": "integer", "minimum": 1, "description": "层级，1 为顶层"},
+          "page": {"type": "string", "description": "页码；无分页文档填 n/a-无分页"}
+        }
+      }
+    },
+    "typography": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scope", "font_body", "size_body", "line_spacing", "margins",
+                   "page_number", "page_limit", "identity_ban",
+                   "indent", "binding", "seal", "source"],
+      "properties": {
+        "scope": {
+          "type": "string",
+          "enum": ["technical_only", "full_doc"],
+          "description": "暗标适用范围；仅 bid_mode=blind 时有意义，普通标写 full_doc"
+        },
+        "font_body": {"type": "string", "description": "正文字体，照录；未要求置空串"},
+        "size_body": {"type": "string", "description": "正文字号（如「小四」），照录"},
+        "line_spacing": {"type": "string", "description": "行距（如「1.5 倍」），照录"},
+        "margins": {"type": "string", "description": "页边距，照录"},
+        "page_number": {"type": "string", "description": "页码规则（位置/起始/格式），照录"},
+        "page_limit": {
+          "type": ["integer", "null"],
+          "minimum": 1,
+          "description": "页数上限；未载明填 null（不得填 0 或估算值）。正文＋证据总页数受此约束"
+        },
+        "identity_ban": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "身份标识禁项（单位名称/人员姓名/单位图标/签字盖章等），照录"
+        },
+        "indent": {"type": "string", "description": "首行缩进（本套件扩展），照录；未要求置空串"},
+        "binding": {"type": "string", "description": "装订方式（本套件扩展），照录；未要求置空串"},
+        "seal": {"type": "string", "description": "签章要求（本套件扩展），照录；未要求置空串"},
+        "source": {
+          "type": "string",
+          "enum": ["tender_required", "client_template", "baseline"],
+          "description": "排版依据档位，必须与 00_metadata.style_source 一致；缺 client_template 会导致第 2 档无法表达"
+        }
+      }
+    }
+  }
+}

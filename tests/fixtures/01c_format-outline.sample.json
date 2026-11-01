@@ -1,0 +1,21 @@
+{
+  "schema_version": "0.2",
+  "chapters": [
+    {"id": "n-1000", "number": "第一章", "title": "投标函", "level": 1, "page": "P1"},
+    {"id": "n-3a2f", "number": "第二章", "title": "施工组织设计", "level": 1, "page": "P12"}
+  ],
+  "typography": {
+    "scope": "full_doc",
+    "font_body": "仿宋",
+    "size_body": "小四",
+    "line_spacing": "1.5 倍",
+    "margins": "上 2.5cm 下 2.5cm 左 3.0cm 右 2.5cm",
+    "page_number": "页脚居中，阿拉伯数字，自正文起编 1",
+    "page_limit": 200,
+    "identity_ban": ["单位名称", "人员姓名", "单位图标", "签字盖章"],
+    "indent": "首行缩进 2 字符",
+    "binding": "胶装",
+    "seal": "法定代表人签字＋单位公章",
+    "source": "baseline"
+  }
+}

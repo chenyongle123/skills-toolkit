@@ -1,0 +1,15 @@
+# 暗标叠加层（overlay，不是第四档）
+# 计划书 §8.3：与 bid_mode=blind 绑定的正交叠加层，叠加于任一生效档位之上；
+# 与三档优先级正交，不参与档位判定。
+schema_version: "0.1"
+overlay: blind
+# 叠加规则（导出与清洁时逐条执行）：
+rules:
+  - no_header_footer_identity   # 页眉页脚不得含投标人单位名/标识
+  - no_logo                     # 不得出现 LOGO 图片
+  - clear_author_fields         # 文档属性作者/最后修改人/公司/模板路径必须清空
+  - no_identity_in_text         # 正文不得出现投标人名称与人员姓名（检查项，报事实态）
+notes:
+  - 暗标叠加不改变字体/字号/行距等排版参数，只做匿名化约束
+  - 普通标仅执行 clear_author_fields 一条（§8.6.3：元数据字段两种标都清）
+  - 正文身份信息检查由 verify 阶段扫描并报告，不改写正文内容（改内容归 ③）
